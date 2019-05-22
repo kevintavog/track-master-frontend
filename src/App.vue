@@ -1,29 +1,67 @@
 <template>
   <div id="app">
-    <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js + TypeScript App"/>
+    <router-view/>
   </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import HelloWorld from './components/HelloWorld.vue';
+import { Component, Vue } from 'vue-property-decorator'
 
 @Component({
   components: {
-    HelloWorld,
+
   },
 })
 export default class App extends Vue {}
 </script>
 
 <style>
+.leaflet-fake-icon-image-2x {
+  background-image: url(../node_modules/leaflet/dist/images/marker-icon-2x.png);
+}
+.leaflet-fake-icon-shadow {
+  background-image: url(../node_modules/leaflet/dist/images/marker-shadow.png);
+}
+@import "../node_modules/leaflet/dist/leaflet.css";
+
+.main-html {
+  height: 100vh;
+  margin: 0;
+  background-color: #202020;
+}
+
+body {
+  height: 100vh;
+  margin: 0;
+}
+
+a {
+  color: white !important;
+}
+
+a:visited {
+  color: white !important;
+}
+
+a:hover {
+  color: white !important;
+}
+
+a:link {
+  color: white !important;
+}
+
+.overrideHoverColor a:hover {
+  color: rgb(206, 206, 206) !important;
+}
+
 #app {
+  width: 100vw;
+  height: 100%;
   font-family: 'Avenir', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
+  color: white;
 }
 </style>
