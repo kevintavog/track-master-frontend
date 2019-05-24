@@ -20,6 +20,18 @@ class SearchService {
     })
   }
 
+  public loadTrack(id: string): Promise<string> {
+    const url = SearchService.baseServerUrl + `api/tracks/${id}/raw`
+    return new Promise((resolve, reject) => {
+      axios.get(url)
+        .then((response) => {
+          resolve(response.data as string)
+        }, (err) => {
+          reject(err)
+        })
+    })
+  }
+
 /*
   public search(request: SearchRequest) {
     // store.commit('startSearch')

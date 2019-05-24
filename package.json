@@ -14,6 +14,7 @@
     "@fortawesome/free-solid-svg-icons": "^5.8.2",
     "@types/leaflet": "^1.4.4",
     "@types/luxon": "^1.13.0",
+    "@types/xml2js": "^0.4.4",
     "axios": "^0.18.0",
     "buefy": "^0.7.6",
     "core-js": "^2.6.5",
@@ -23,7 +24,8 @@
     "vue-class-component": "^7.0.2",
     "vue-meta": "^1.6.0",
     "vue-property-decorator": "^8.1.1",
-    "vue-router": "^3.0.6"
+    "vue-router": "^3.0.6",
+    "xml2js": "^0.4.19"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "^3.7.0",

@@ -8,6 +8,18 @@
       </p>
     </b-field>
 
+    <b-pagination
+      :total="searchResults.totalMatches"
+      :current.sync="currentPage"
+      :per-page="pageSize"
+      :rounded="true"
+      icon-pack="fas"
+      order="is-centered"
+      aria-next-label="Next page"
+      aria-previous-label="Previous page"
+      aria-page-label="Page"
+      aria-current-label="Current page">
+    </b-pagination>
     <br>
     <b-table 
       :data="searchResults.matches"
@@ -37,6 +49,12 @@
 
         <b-table-column field="flatSites" label="Sites">
           {{ firstFew(props.row.flatSites) }}
+        </b-table-column>
+
+        <b-table-column field="flatStates" label="">
+          <router-link :to="{ path: 'map', query: {id: props.row.id} }">
+            <b-icon icon="map" size="is-medium"/>
+          </router-link>
         </b-table-column>
 
       </template>
@@ -73,14 +91,39 @@ import { DateTime } from 'luxon'
 export default class Search extends Vue {
   private searchResults: SearchResults = { matches: [], totalMatches: 0 }
   private openedDetails: number[] = []
+  private currentPage: number = 1
+  private pageSize: number = 30
 
   private mounted() {
     this.searchResults = { matches: [], totalMatches: 0 }
-    searchService.list(1, 30)
+    this.invokeSearch(this.$route.query)
+  }
+
+  @Watch('$route')
+  private onRouteChanged(to: any, from: any) {
+    this.invokeSearch(to.query)
+  }
+
+  private invokeSearch(query: any): void {
+    let page = 1
+    if ('page' in query) {
+        page = +query.page
+    }
+    this.currentPage = page
+
+    searchService.list((page - 1) * this.pageSize, this.pageSize)
       .then((results) => {
         this.searchResults = results
       })
   }
+
+  @Watch('currentPage')
+  private pageChanged(to: any, from: any) {
+    if (to !== from) {
+      this.$router.push( { path: 'search', query: { 'page': `${this.currentPage}` } })
+    }
+  }
+
 
   private duration(track: SearchTrack): string {
     const end = DateTime.fromISO(track.endTime)
