@@ -1,6 +1,5 @@
 import axios from 'axios'
-// import { SearchRequest } from '@/models/SearchRequest'
-import { SearchResults, TrackManagerErrorResponse } from '@/models/SearchResults'
+import { SearchResults, SearchTrack, TrackManagerErrorResponse } from '@/models/SearchResults'
 
 class SearchService {
   // private static baseServerUrl = process.env.NODE_ENV === 'production' ? 'http://jupiter/findaphoto/' : '/'
@@ -14,6 +13,18 @@ class SearchService {
       axios.get(url)
         .then((response) => {
           resolve(response.data as SearchResults)
+        }, (err) => {
+            reject(err)
+        })
+    })
+  }
+
+  public getTrack(id: string): Promise<SearchTrack> {
+    const url = SearchService.baseServerUrl + `api/tracks/${id}`
+    return new Promise((resolve, reject) => {
+      axios.get(url)
+        .then((response) => {
+          resolve(response.data as SearchTrack)
         }, (err) => {
             reject(err)
         })

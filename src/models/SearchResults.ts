@@ -13,14 +13,14 @@ export interface SearchTrack {
     path: string
     startTime: string
     endTime: string
-
-    flatCountries: string
-    flatStates: string
-    flatCities: string
-    flatSites: string
+    timezoneInfo: SearchTimezoneInfo
 }
 
-/*
+export interface SearchTimezoneInfo {
+    id: string
+    tag: string
+}
+
 export const emptySearchTrack: SearchTrack = {
     id: '',
     cityNames: [],
@@ -28,11 +28,15 @@ export const emptySearchTrack: SearchTrack = {
     countryNames: [],
     stateNames: [],
     siteNames: [],
-    path: string,
-    startTime: Date,
-    endTime: Date,
+    path: '',
+    startTime: Date(),
+    endTime: Date(),
+    timezoneInfo: {
+        id: '',
+        tag: '',
+    },
 } as SearchTrack
-*/
+
 
 export interface TrackManagerErrorResponse {
     error: string

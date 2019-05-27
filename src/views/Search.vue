@@ -31,27 +31,27 @@
 
         <b-table-column field="startTime" label="Date" centered>
           <span >
-          {{ new Date(props.row.startTime).toLocaleDateString() }}
+          {{ displayable.date(props.row.startTime) }}
           </span>
         </b-table-column>
 
-        <b-table-column field="flatCountries" label="Countries">
-          {{ props.row.flatCountries }}
+        <b-table-column field="countryNames" label="Countries">
+          {{ displayable.firstFew(props.row.countryNames) }}
         </b-table-column>
 
-        <b-table-column field="flatStates" label="States">
-          {{ props.row.flatStates }}
+        <b-table-column field="stateNames" label="States">
+          {{ displayable.firstFew(props.row.stateNames) }}
         </b-table-column>
 
-        <b-table-column field="flatCities" label="Cities">
-          {{ firstFew(props.row.flatCities) }}
+        <b-table-column field="cityNames" label="Cities">
+          {{ displayable.firstFew(props.row.cityNames) }}
         </b-table-column>
 
-        <b-table-column field="flatSites" label="Sites">
-          {{ firstFew(props.row.flatSites) }}
+        <b-table-column field="siteNames" label="Sites">
+          {{ displayable.firstFew(props.row.siteNames) }}
         </b-table-column>
 
-        <b-table-column field="flatStates" label="">
+        <b-table-column field="siteNames" label="">
           <router-link :to="{ path: 'map', query: {id: props.row.id} }">
             <b-icon icon="map" size="is-medium"/>
           </router-link>
@@ -61,19 +61,18 @@
 
       <template slot="detail" slot-scope="props">
         <div>
-          From {{ new Date(props.row.startTime).toLocaleTimeString('en-US', { timeZone: 'UTC' }) }}
-          to {{ new Date(props.row.endTime).toLocaleTimeString('en-US', { timeZone: 'UTC' }) }} (UTC)
+          From {{ displayable.time(props.row.startTime, props.row.timezoneInfo) }}
+          to {{ displayable.time(props.row.endTime, props.row.timezoneInfo) }} ( {{props.row.timezoneInfo.tag}} )
         </div>
         <div>
-          Duration: {{ duration(props.row)  }} 
+          Duration: {{ displayable.duration(props.row)  }} 
         </div>
         <div>
-          Cities: {{props.row.flatCities}}
+          Cities: {{ displayable.join(props.row.cityNames) }}
         </div>
         <div>
-          Sites: {{props.row.flatSites}}
+          Sites: {{ displayable.join(props.row.siteNames) }}
         </div>
-
       </template>
 
     </b-table>
@@ -84,7 +83,7 @@
 import { Component, Vue, Watch } from 'vue-property-decorator'
 import { searchService } from '@/services/SearchService'
 import { SearchResults, SearchTrack } from '@/models/SearchResults'
-import { DateTime } from 'luxon'
+import { displayable } from '@/utils/Displayable'
 
 
 @Component({})
@@ -93,6 +92,7 @@ export default class Search extends Vue {
   private openedDetails: number[] = []
   private currentPage: number = 1
   private pageSize: number = 30
+  private displayable = displayable
 
   private mounted() {
     this.searchResults = { matches: [], totalMatches: 0 }
@@ -115,33 +115,16 @@ export default class Search extends Vue {
       .then((results) => {
         this.searchResults = results
       })
+      .catch((err) => {
+        console.log(err)
+      })
   }
 
   @Watch('currentPage')
   private pageChanged(to: any, from: any) {
     if (to !== from) {
-      this.$router.push( { path: 'search', query: { 'page': `${this.currentPage}` } })
+      this.$router.push( { path: 'search', query: { page: `${this.currentPage}` } })
     }
-  }
-
-
-  private duration(track: SearchTrack): string {
-    const end = DateTime.fromISO(track.endTime)
-    const start = DateTime.fromISO(track.startTime)
-    const diff = end.diff(start, ['hours', 'minutes', 'seconds']).toObject()
-    return `${diff.hours}:${diff.minutes}:${diff.seconds}`
-  }
-
-  private firstFew(str: string): string {
-    if (!str) {
-      return ''
-    }
-    const tokens = str.split(',')
-    let few = tokens.slice(0, 2).join(', ')
-    if (tokens.length > 2) {
-      few += ', ...'
-    }
-    return few
   }
 }
 
