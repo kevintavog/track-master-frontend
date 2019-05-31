@@ -12,27 +12,30 @@
       <b-tabs v-model="activeInfoTab">
 
         <b-tab-item label="Meta" class="is-pulled-left" >
-          <div>
+          <div class="has-text-weight-bold">
             {{ displayable.dayOfWeek(track.startTime) }},
             {{ displayable.longDate(track.startTime) }}
+            <span class="has-text-weight-light">
+              ({{ track.path }})
+            </span>
             <br>
             {{ displayable.time(track.startTime, track.timezoneInfo) }}
             to {{ displayable.time(track.endTime, track.timezoneInfo) }} ({{track.timezoneInfo.tag}})
           </div>
           <div>
-            Duration: {{ displayable.duration(track) }} 
+            Duration: <span class="has-text-weight-semibold"> {{ displayable.duration(track) }} </span>
           </div>
           <div>
-            Countries: {{displayable.join(track.countryNames)}}
-          </div>
-          <div>
-            States: {{displayable.join(track.stateNames)}}
+            Sites: {{displayable.join(track.siteNames)}}
           </div>
           <div>
             Cities: {{displayable.join(track.cityNames)}}
           </div>
           <div>
-            Sites: {{displayable.join(track.siteNames)}}
+            States: {{displayable.join(track.stateNames)}}
+          </div>
+          <div>
+            Countries: {{displayable.join(track.countryNames)}}
           </div>
         </b-tab-item>
 
@@ -40,8 +43,40 @@
           <apexchart height="200" type="line" :options="speedOptions" :series="speedSeries"></apexchart>
         </b-tab-item>
 
-        <b-tab-item label="Distance">
-          Distance!
+        <b-tab-item label="Runs">
+          <b-table 
+            :data="allRuns">
+            <template slot-scope="props">
+              <b-table-column field="startTime" label="Time" centered>
+                <span >
+                  {{ displayable.date(props.row.points[0].time) }}, 
+                  {{ displayable.time(props.row.points[0].time, track.timezoneInfo) }} - 
+                  {{ displayable.time(props.row.points[props.row.points.length - 1].time, track.timezoneInfo) }}
+                </span>
+              </b-table-column>
+              <b-table-column field="speed" label="Speed" centered>
+                <span >
+                  {{ displayable.speed(props.row.seconds, props.row.kilometers) }}
+                </span>
+              </b-table-column>
+              <b-table-column field="duration" label="Duration" centered>
+                <span >
+                  {{ displayable.durationSeconds(props.row.seconds) }}
+                </span>
+              </b-table-column>
+              <b-table-column field="distance" label="Distance" centered>
+                <span >
+                  {{ displayable.distanceKilometers(props.row.kilometers) }}
+                </span>
+              </b-table-column>
+              <b-table-column field="transportation" label="Transportation" centered>
+                <span >
+                  {{ props.row.transportationTypes.filter(i => i.probability >= 0.33).map(i => i.mode).join(', ')  }}
+                </span>
+              </b-table-column>
+            </template>
+          </b-table>
+          
         </b-tab-item>
 
       </b-tabs>
@@ -65,11 +100,12 @@ export default class Map extends Vue {
   private map?: L.Map
   private mapLayersControl: L.Control.Layers | null = null
   private track: SearchTrack = emptySearchTrack
+  private allRuns: GpsRun[] = []
   private infoVisible = true
   private activeInfoTab = 0
   private speedSeries = [{
     name: 'Speed',
-    data: [{ x: '1', y: 3.1, pt: emptyGpsPoint }],
+    data: [{ x: '1', y: 3.1 }],
   }]
   private speedOptions = {
     chart: {
@@ -130,10 +166,11 @@ console.log('clicked', event, config)
 
   private loadTrack(id: string) {
     this.speedSeries[0].data = []
+    this.allRuns = []
     searchService.loadTrack(id)
       .then((results) => {
         // This is silly - `results` is supposed to be a string already, but isn't.
-        const gps: Gps = (results as unknown) as Gps
+        const gps = (results as unknown) as Gps
         this.map!.fitBounds([
           [gps.bounds.min.lat, gps.bounds.min.lon],
           [gps.bounds.max.lat, gps.bounds.max.lon]],
@@ -148,18 +185,34 @@ console.log('clicked', event, config)
           }
           trackNumber += 1
         }
+
+        this.addStops(gps)
       })
   }
 
+  private addStops(gps: Gps) {
+    if (!gps.stops) {
+      return
+    }
+    const stops = gps.stops.map(s => {
+        const options = { color: 'red', radius: 5, fillOpacity: 0.5 }
+        return new L.Circle([s.latitude, s.longitude], options)
+    })
+    const stopLayer = new GpxFeatureGroup(stops)
+    stopLayer.addTo(this.map as L.Map)
+    this.addToMapLayersControl(stopLayer, `Stops`)
+  }
+
   private addRun(gps: Gps, track: GpsTrack, run: GpsRun, trackId: string) {
+    this.allRuns.push(run)
     const runLatLngList = run.points.map( (p) => {
-      this.speedSeries[0].data.push({ x: p.time, y: p.speedKmH, pt: p })
+      this.speedSeries[0].data.push({ x: p.time, y: p.calculatedSpeedKmHFromPrevious })
       return new L.LatLng(p.latitude, p.longitude)
     })
 
     const runLine = new L.Polyline(
       runLatLngList,
-      { color: 'purple', weight: 3, dashArray: '', opacity: 1.0 })
+      { color: '#0000FF', weight: 3, dashArray: '', opacity: 1.0 })
 
     const runLayer = new GpxFeatureGroup([runLine])
     runLayer.addTo(this.map as L.Map)

@@ -2,6 +2,7 @@ import { SearchTimezoneInfo } from '@/models/SearchResults'
 
 export interface Gps {
     tracks: GpsTrack[]
+    stops: GpsPoint[]
     timezoneInfo: SearchTimezoneInfo
     startTime: Date
     endTime: Date
@@ -47,6 +48,7 @@ export interface GpsPoint {
     metersFromPrevious: number
     kilometersIntoRun: number
     secondsIntoRun: number
+    calculatedSpeedKmHFromPrevious: number
 }
 
 export const emptyGpsPoint: GpsPoint = {
@@ -61,6 +63,7 @@ export const emptyGpsPoint: GpsPoint = {
     metersFromPrevious: 0,
     kilometersIntoRun: 0,
     secondsIntoRun: 0,
+    calculatedSpeedKmHFromPrevious: 0,
 } as GpsPoint
 
 export interface GpsTransportationType {

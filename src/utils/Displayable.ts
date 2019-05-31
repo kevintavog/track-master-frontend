@@ -9,6 +9,25 @@ export class Displayable {
     return `${diff.hours}:${diff.minutes}:${diff.seconds}`
   }
 
+  public durationSeconds(seconds: number): string {
+    return `${seconds} seconds`
+  }
+
+  public distanceKilometers(km: number): string {
+      if (km < 0.001) {
+        return `${Math.round(km * 1000 * 100)} centimeters`
+      }
+      if (km < 1.0) {
+          return `${Math.round(km * 1000)} meters`
+      }
+      return `${Math.round(100 * km) / 100} km`
+  }
+
+  public speed(seconds: number, kilometers: number): string {
+      const kmh = kilometers / (seconds / (60 * 60))
+      return `${Math.round(10 * kmh) / 10} km/h`
+  }
+
   public dayOfWeek(date: string): string {
     return DateTime.fromISO(date).weekdayLong
   }
