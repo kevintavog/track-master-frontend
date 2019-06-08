@@ -6,6 +6,9 @@
       <p class="is-pulled-left has-text-white">Info</p>
       <a class="is-pulled-left left-padding">
         <b-icon :icon="infoVisible ? 'caret-down' : 'caret-up'" />
+        <span class="left-padding">
+          {{ selectedInfoText }}
+        </span>
       </a>
     </div>
     <b-collapse :open="infoVisible" class="info-content" aria-id="info-content-id">
@@ -24,6 +27,9 @@
           </div>
           <div>
             Duration: <span class="has-text-weight-semibold"> {{ displayable.duration(track) }} </span>
+          </div>
+          <div>
+            Speed: <span class="has-text-weight-semibold"> {{ displayable.speed(track.durationSeconds, track.distanceKilometers) }} </span>
           </div>
           <div>
             Sites: {{displayable.join(track.siteNames)}}
@@ -79,6 +85,30 @@
           
         </b-tab-item>
 
+        <b-tab-item label="Clusters">
+          <b-table 
+            :data="clusters">
+            <template slot-scope="props">
+              <b-table-column field="start" label="start" centered>
+                <span >
+                  {{ displayable.time(props.row.points[0].time, track.timezoneInfo) }}
+                </span>
+              </b-table-column>
+              <b-table-column field="duration" label="Duration" centered>
+                <span >
+                  {{ displayable.durationSeconds(props.row.seconds) }}
+                </span>
+              </b-table-column>
+              <b-table-column field="meters" label="Meters" centered>
+                <span >
+                  {{ props.row.meters }} ( {{ props.row.endToEndMeters }} )
+                </span>
+              </b-table-column>
+            </template>
+          </b-table>
+          
+        </b-tab-item>
+
       </b-tabs>
     </b-collapse>
   </div>
@@ -88,7 +118,7 @@
 import { Component, Vue, Watch } from 'vue-property-decorator'
 import L from 'leaflet'
 import { GpxParser, GpxSegment } from '@/models/Gpx'
-import { emptyGpsPoint, Gps, GpsBounds, GpsPoint, GpsRun, GpsTrack } from '@/models/Gps'
+import { emptyGpsPoint, Gps, GpsBounds, GpsClusterStop, GpsPoint, GpsRun, GpsTrack } from '@/models/Gps'
 import { searchService } from '@/services/SearchService'
 import { emptySearchTrack, SearchTrack } from '@/models/SearchResults'
 import { GpxFeatureGroup } from '@/utils/GpxFeatureGroup.ts'
@@ -101,7 +131,11 @@ export default class Map extends Vue {
   private mapLayersControl: L.Control.Layers | null = null
   private track: SearchTrack = emptySearchTrack
   private allRuns: GpsRun[] = []
-  private infoVisible = true
+  private clusters: GpsClusterStop[] = []
+  private selectedPath?: L.Path
+  private selectedOptions = {}
+  private selectedInfoText = ''
+  private infoVisible = false
   private activeInfoTab = 0
   private speedSeries = [{
     name: 'Speed',
@@ -176,47 +210,93 @@ console.log('clicked', event, config)
           [gps.bounds.max.lat, gps.bounds.max.lon]],
           undefined)
 
+        // this.cells = gps.cells
         let trackNumber = 1
         for (const track of gps.tracks) {
-          let runNumber = 1
           for (const run of track.runs) {
-            this.addRun(gps, track, run, `T ${trackNumber}, Run #${runNumber}`)
-            runNumber += 1
+            this.allRuns.push(run)
           }
-          trackNumber += 1
         }
 
+        this.addRuns(this.allRuns, 'Runs')
         this.addStops(gps)
+        this.addClusters(gps)
       })
+  }
+
+  private addClusters(gps: Gps) {
+    if (!gps.clusters) {
+      this.clusters = []
+      return
+    }
+
+    const options = { color: 'red', fillOpacity: 0.7 }
+    this.clusters = gps.clusters
+    let index = 1
+    const l = gps.clusters.map(c => {
+      const clusterIndex = index
+      let l = new L.Rectangle([[c.bounds.min.lat, c.bounds.min.lon], [c.bounds.max.lat, c.bounds.max.lon]], options)
+      l.on('click', e => {
+        const m = `Cluster #${clusterIndex}, ${this.displayable.durationSeconds(c.seconds)}, ` +
+          `${c.points.length} stops, starting ${this.time(c.points[0].time)}`
+        this.setSelection(e, l, options, m)
+      })
+      index += 1
+      return l
+    })
+    const layer = new GpxFeatureGroup(l)
+    layer.addTo(this.map as L.Map)
+    this.addToMapLayersControl(layer, `Clusters`)
   }
 
   private addStops(gps: Gps) {
     if (!gps.stops) {
       return
     }
+
+    const options = { radius: 5, color: 'red', opacity: 0.6, fillColor: 'orange', fillOpacity: 0.9 }
+    let index = 1
     const stops = gps.stops.map(s => {
-        const options = { color: 'red', radius: 5, fillOpacity: 0.5 }
-        return new L.Circle([s.latitude, s.longitude], options)
+        let l = new L.Circle([s.latitude, s.longitude], options)
+        const stopIndex = index
+        l.on('click', e => {
+          let me = e as L.LeafletMouseEvent
+          const m = `stop #${stopIndex}, at ${this.time(s.time)}`
+          this.setSelection(e, l, options, m)
+        })
+        index += 1
+        return l
     })
     const stopLayer = new GpxFeatureGroup(stops)
     stopLayer.addTo(this.map as L.Map)
     this.addToMapLayersControl(stopLayer, `Stops`)
   }
 
-  private addRun(gps: Gps, track: GpsTrack, run: GpsRun, trackId: string) {
-    this.allRuns.push(run)
-    const runLatLngList = run.points.map( (p) => {
-      this.speedSeries[0].data.push({ x: p.time, y: p.calculatedSpeedKmHFromPrevious })
-      return new L.LatLng(p.latitude, p.longitude)
+  private addRuns(runs: GpsRun[], label: string) {
+    const options = { color: '#0000FF', weight: 5, dashArray: '', opacity: 0.6 }
+    let index = 1
+    const runLines = runs.map(r => {
+        const runIndex = index
+        const runLatLngList = r.points.map( (p) => {
+          this.speedSeries[0].data.push({ x: p.time, y: p.calculatedSpeedKmHFromPrevious })
+          return new L.LatLng(p.latitude, p.longitude)
+        })
+
+        const line = new L.Polyline(runLatLngList, options)
+        line.on('click', e => {
+          const m = `run #${runIndex}, ${displayable.distanceKilometers(r.kilometers)} in ` +
+            `${this.displayable.durationSeconds(r.seconds)}, ` +
+            `${this.displayable.speed(r.seconds, r.kilometers)}, ` +
+            `${r.points.length} points, starting ${this.time(r.points[0].time)}`
+          this.setSelection(e, line, options, m)
+        })
+        index += 1
+        return line
     })
 
-    const runLine = new L.Polyline(
-      runLatLngList,
-      { color: '#0000FF', weight: 3, dashArray: '', opacity: 1.0 })
-
-    const runLayer = new GpxFeatureGroup([runLine])
+    const runLayer = new GpxFeatureGroup(runLines)
     runLayer.addTo(this.map as L.Map)
-    this.addToMapLayersControl(runLayer, `${trackId}`)
+    this.addToMapLayersControl(runLayer, label)
   }
 
   private addToMapLayersControl(layer: L.FeatureGroup, name: string) {
@@ -225,6 +305,25 @@ console.log('clicked', event, config)
           undefined, { [name]: layer }, { position: 'topright', collapsed: false }).addTo(this.map as L.Map)
     } else {
       this.mapLayersControl.addOverlay(layer, name)
+    }
+  }
+
+  private setSelection(e: any, path: L.Path, options: {}, message: string) {
+    e.originalEvent._gpxHandled = true
+    e.originalEvent.stopImmediatePropagation()
+
+    this.clearSelection()
+    this.selectedInfoText = message
+    this.selectedPath = path
+    this.selectedOptions = options
+    path.setStyle({color: '#FF33FF', weight: 7, opacity: 0.8})
+  }
+
+  private clearSelection() {
+    if (this.selectedPath){
+      this.selectedInfoText = ''
+      this.selectedPath.setStyle(this.selectedOptions)
+      this.selectedPath = undefined
     }
   }
 
@@ -246,6 +345,17 @@ console.log('clicked', event, config)
     }).addTo(this.map)
 
     L.control.scale({ position: 'bottomright' }).addTo(this.map)
+
+    this.map.on('click', e => {
+      let me = e as any
+      if (me.originalEvent && me.originalEvent._gpxHandled) { return }
+      this.clearSelection()
+    })
+
+  }
+
+  private time(time: string): string {
+    return this.displayable.time(time, this.track.timezoneInfo)
   }
 
   private loadGpxTrack(id: string) {

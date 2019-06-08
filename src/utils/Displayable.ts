@@ -10,7 +10,19 @@ export class Displayable {
   }
 
   public durationSeconds(seconds: number): string {
-    return `${seconds} seconds`
+    if (seconds < 60) {
+      return `${seconds} seconds`
+    }
+    if (seconds < 60 * 60) {
+      const m = Math.floor(seconds / 60)
+      const s = seconds - (m * 60)
+      return `${m}:${this.pad(s, 2)}`
+    }
+
+    const hours = Math.floor(seconds / (60 * 60))
+    const minutes = Math.floor((seconds - hours * 60) / 60)
+    const sec = seconds - (hours * 60 * 60) - (minutes * 60)
+    return `${hours}:${this.pad(minutes, 2)}:${this.pad(sec, 2)}`
   }
 
   public distanceKilometers(km: number): string {
@@ -23,12 +35,20 @@ export class Displayable {
       return `${Math.round(100 * km) / 100} km`
   }
 
+  public pad(num: number, padding: number): string {
+    return num.toString().padStart(padding, '0')
+  }
+
   public speed(seconds: number, kilometers: number): string {
       const kmh = kilometers / (seconds / (60 * 60))
       return `${Math.round(10 * kmh) / 10} km/h`
   }
 
-  public dayOfWeek(date: string): string {
+  public speedKmh(kmh: number): string {
+    return `${Math.round(10 * kmh) / 10} km/h`
+}
+
+public dayOfWeek(date: string): string {
     return DateTime.fromISO(date).weekdayLong
   }
 

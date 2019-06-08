@@ -3,10 +3,21 @@ import { SearchTimezoneInfo } from '@/models/SearchResults'
 export interface Gps {
     tracks: GpsTrack[]
     stops: GpsPoint[]
+    clusters: GpsClusterStop[]
     timezoneInfo: SearchTimezoneInfo
     startTime: Date
     endTime: Date
     bounds: GpsBounds
+    distanceKilometers: number
+    durationSeconds: number
+}
+
+export interface GpsClusterStop {
+    points: GpsPoint[]
+    bounds: GpsBounds
+    seconds: number
+    endToEndMeters: number
+    meters: number
 }
 
 export interface GpsBounds {
@@ -31,6 +42,7 @@ export interface GpsRun {
     bounds: GpsBounds
     kilometers: number
     seconds: number
+    kmh: number
     secondsIntoTrack: number
     kilometersIntoTrack: number
     transportationTypes: GpsTransportationType[]
