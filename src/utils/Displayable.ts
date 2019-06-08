@@ -6,7 +6,7 @@ export class Displayable {
     const end = DateTime.fromISO(track.endTime)
     const start = DateTime.fromISO(track.startTime)
     const diff = end.diff(start, ['hours', 'minutes', 'seconds']).toObject()
-    return `${diff.hours}:${diff.minutes}:${diff.seconds}`
+    return `${diff.hours}:${this.pad(diff.minutes || 0, 2)}:${this.pad(diff.seconds || 0, 2)}`
   }
 
   public durationSeconds(seconds: number): string {
@@ -20,8 +20,10 @@ export class Displayable {
     }
 
     const hours = Math.floor(seconds / (60 * 60))
-    const minutes = Math.floor((seconds - hours * 60) / 60)
-    const sec = seconds - (hours * 60 * 60) - (minutes * 60)
+    const hourSeconds = hours * 60 * 60
+    const minutes = Math.floor((seconds - hourSeconds) / 60)
+    const minuteSeconds = minutes * 60
+    const sec = seconds - hourSeconds - minuteSeconds
     return `${hours}:${this.pad(minutes, 2)}:${this.pad(sec, 2)}`
   }
 
