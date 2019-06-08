@@ -91,7 +91,7 @@
             <template slot-scope="props">
               <b-table-column field="start" label="start" centered>
                 <span >
-                  {{ displayable.time(props.row.points[0].time, track.timezoneInfo) }}
+                  {{ displayable.time(props.row.startTime, track.timezoneInfo) }}
                 </span>
               </b-table-column>
               <b-table-column field="duration" label="Duration" centered>
@@ -99,9 +99,9 @@
                   {{ displayable.durationSeconds(props.row.seconds) }}
                 </span>
               </b-table-column>
-              <b-table-column field="meters" label="Meters" centered>
+              <b-table-column field="count" label="# Stops" centered>
                 <span >
-                  {{ props.row.meters }} ( {{ props.row.endToEndMeters }} )
+                  {{ props.row.countStops }}
                 </span>
               </b-table-column>
             </template>
@@ -188,11 +188,6 @@ export default class Map extends Vue {
       this.loadTrack(props.id as string)
     }
   }
-/*
-  private chartClick(event: any, chartContext: any, config: any) {
-console.log('clicked', event, config)
-  }
-*/
 
   private formatXTooltip(value: string): string {
     return this.displayable.time(value, this.track.timezoneInfo)
@@ -210,7 +205,6 @@ console.log('clicked', event, config)
           [gps.bounds.max.lat, gps.bounds.max.lon]],
           undefined)
 
-        // this.cells = gps.cells
         let trackNumber = 1
         for (const track of gps.tracks) {
           for (const run of track.runs) {
@@ -218,9 +212,9 @@ console.log('clicked', event, config)
           }
         }
 
+        this.addClusters(gps)
         this.addRuns(this.allRuns, 'Runs')
         this.addStops(gps)
-        this.addClusters(gps)
       })
   }
 
@@ -238,7 +232,7 @@ console.log('clicked', event, config)
       let l = new L.Rectangle([[c.bounds.min.lat, c.bounds.min.lon], [c.bounds.max.lat, c.bounds.max.lon]], options)
       l.on('click', e => {
         const m = `Cluster #${clusterIndex}, ${this.displayable.durationSeconds(c.seconds)}, ` +
-          `${c.points.length} stops, starting ${this.time(c.points[0].time)}`
+          `${c.countStops} stops, starting ${this.time(c.startTime.toString())}`
         this.setSelection(e, l, options, m)
       })
       index += 1

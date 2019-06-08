@@ -13,11 +13,11 @@ export interface Gps {
 }
 
 export interface GpsClusterStop {
-    points: GpsPoint[]
+    startTime: Date
+    endTime: Date
+    countStops: number
     bounds: GpsBounds
     seconds: number
-    endToEndMeters: number
-    meters: number
 }
 
 export interface GpsBounds {
