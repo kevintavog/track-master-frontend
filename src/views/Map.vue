@@ -400,6 +400,13 @@ export default class Map extends Vue {
 .leaflet-bar, .leaflet-bar a {
   background-color: #666;
 }
+
+.tab-content {
+  max-height: 16em;
+  overflow: auto !important;
+}
+
+
 </style>
 
 <style scoped>
