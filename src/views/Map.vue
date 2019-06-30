@@ -223,7 +223,6 @@ export default class Map extends Vue {
           [gps.bounds.max.lat, gps.bounds.max.lon]],
           undefined)
 
-        let trackNumber = 1
         for (const track of gps.tracks) {
           for (const run of track.runs) {
             this.allRuns.push(run)
@@ -244,16 +243,16 @@ export default class Map extends Vue {
 
     this.clusters = gps.clusters
     let index = 1
-    const l = gps.clusters.map(c => {
+    const l = gps.clusters.map((c) => {
       const clusterIndex = index
-      let l = new L.Rectangle([[c.bounds.min.lat, c.bounds.min.lon], [c.bounds.max.lat, c.bounds.max.lon]], this.clusterSelectionOptions)
-      l.on('click', e => {
-        this.setSelection(e, l, this.clusterSelectionOptions, this.clusterSelectionMessage(clusterIndex, c))
+      const r = new L.Rectangle([[c.bounds.min.lat, c.bounds.min.lon], [c.bounds.max.lat, c.bounds.max.lon]], this.clusterSelectionOptions)
+      r.on('click', (e) => {
+        this.setSelection(e, r, this.clusterSelectionOptions, this.clusterSelectionMessage(clusterIndex, c))
         this.selectedCluster = c
       })
       index += 1
-      this.clusterPolyMap[c.startTime.toString()] = l
-      return l
+      this.clusterPolyMap[c.startTime.toString()] = r
+      return r
     })
     const layer = new GpxFeatureGroup(l)
     layer.addTo(this.map as L.Map)
@@ -267,11 +266,11 @@ export default class Map extends Vue {
 
     const options = { radius: 5, color: 'red', opacity: 0.6, fillColor: 'orange', fillOpacity: 0.9 }
     let index = 1
-    const stops = gps.stops.map(s => {
-        let l = new L.Circle([s.latitude, s.longitude], options)
+    const stops = gps.stops.map((s) => {
+        const l = new L.Circle([s.latitude, s.longitude], options)
         const stopIndex = index
-        l.on('click', e => {
-          let me = e as L.LeafletMouseEvent
+        l.on('click', (e) => {
+          const me = e as L.LeafletMouseEvent
           const m = `stop #${stopIndex}, at ${this.time(s.time)}`
           this.setSelection(e, l, options, m)
         })
@@ -285,7 +284,7 @@ export default class Map extends Vue {
 
   private addRuns(runs: GpsRun[], label: string) {
     let index = 1
-    const runLines = runs.map(r => {
+    const runLines = runs.map((r) => {
         const runIndex = index
         const runLatLngList = r.points.map( (p) => {
           this.speedSeries[0].data.push({ x: p.time, y: p.calculatedSpeedKmHFromPrevious })
@@ -293,7 +292,7 @@ export default class Map extends Vue {
         })
 
         const line = new L.Polyline(runLatLngList, this.runSelectionOptions)
-        line.on('click', e => {
+        line.on('click', (e) => {
           this.setSelection(e, line, this.runSelectionOptions, this.runSelectionMessage(runIndex, r))
           this.selectedRun = r
         })
@@ -330,7 +329,7 @@ export default class Map extends Vue {
   }
 
   private clearSelection() {
-    if (this.selectedPath){
+    if (this.selectedPath) {
       this.selectedInfoText = ''
       this.selectedPath.setStyle(this.selectedOptions)
       this.selectedPath = undefined
@@ -392,8 +391,8 @@ export default class Map extends Vue {
 
     L.control.scale({ position: 'bottomright' }).addTo(this.map)
 
-    this.map.on('click', e => {
-      let me = e as any
+    this.map.on('click', (e) => {
+      const me = e as any
       if (me.originalEvent && me.originalEvent._gpxHandled) { return }
       this.clearSelection()
     })
