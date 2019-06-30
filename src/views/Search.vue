@@ -29,18 +29,25 @@
       detail-key="id">
       <template slot-scope="props">
 
-        <b-table-column field="startTime" label="Date" centered>
+        <b-table-column field="start" label="Date" centered>
           <span >
-          {{ displayable.date(props.row.startTime) }}
+            {{ displayable.date(props.row.startTime) }}
           </span>
+        </b-table-column>
+
+        <b-table-column field="start" label="Time" centered>
+          <span>
+            {{ displayable.shortTime(props.row.startTime, props.row.timezoneInfo) }} -
+            {{ displayable.shortTime(props.row.endTime, props.row.timezoneInfo) }}
+          </span>
+        </b-table-column>
+
+        <b-table-column field="duration" label="Duration">
+          {{ displayable.distance(props.row) }}, {{ displayable.duration(props.row) }}
         </b-table-column>
 
         <b-table-column field="countryNames" label="Countries">
           {{ displayable.firstFew(props.row.countryNames) }}
-        </b-table-column>
-
-        <b-table-column field="stateNames" label="States">
-          {{ displayable.firstFew(props.row.stateNames) }}
         </b-table-column>
 
         <b-table-column field="cityNames" label="Cities">
@@ -65,12 +72,21 @@
           to {{ displayable.time(props.row.endTime, props.row.timezoneInfo) }} ( {{props.row.timezoneInfo.tag}} )
         </div>
         <div>
+          Path: {{ props.row.path }}
+        </div>
+        <div>
+          Distance: {{ displayable.distance(props.row) }}
+        </div>
+        <div>
           Duration: {{ displayable.duration(props.row)  }} 
         </div>
-        <div>
+        <div v-if="hasEntries(props.row.stateNames)">
+          States: {{ displayable.join(props.row.stateNames) }}
+        </div>
+        <div v-if="hasEntries(props.row.cityNames)">
           Cities: {{ displayable.join(props.row.cityNames) }}
         </div>
-        <div>
+        <div v-if="hasEntries(props.row.siteNames)">
           Sites: {{ displayable.join(props.row.siteNames) }}
         </div>
       </template>
@@ -102,6 +118,10 @@ export default class Search extends Vue {
   @Watch('$route')
   private onRouteChanged(to: any, from: any) {
     this.invokeSearch(to.query)
+  }
+
+  private hasEntries(data: string[]): boolean {
+    return data.length > 0 && data[0].length > 0
   }
 
   private invokeSearch(query: any): void {

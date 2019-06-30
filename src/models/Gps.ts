@@ -10,6 +10,7 @@ export interface Gps {
     bounds: GpsBounds
     distanceKilometers: number
     durationSeconds: number
+    movingSeconds: number
 }
 
 export interface GpsClusterStop {

@@ -26,10 +26,14 @@
             to {{ displayable.time(track.endTime, track.timezoneInfo) }} ({{track.timezoneInfo.tag}})
           </div>
           <div>
-            Duration: <span class="has-text-weight-semibold"> {{ displayable.duration(track) }} </span>
+            Distance: <span class="has-text-weight-semibold"> {{ displayable.distanceKilometers(track.distanceKilometers) }} </span>
           </div>
           <div>
-            Speed: <span class="has-text-weight-semibold"> {{ displayable.speed(track.durationSeconds, track.distanceKilometers) }} </span>
+            Duration total: <span class="has-text-weight-semibold"> {{ displayable.durationSeconds(track.durationSeconds) }} </span>,
+              moving: <span class="has-text-weight-semibold"> {{ displayable.durationSeconds(track.movingSeconds) }} </span>
+          </div>
+          <div>
+            Speed: <span class="has-text-weight-semibold"> {{ displayable.speed(track.movingSeconds, track.distanceKilometers) }} </span>
           </div>
           <div>
             Sites: {{displayable.join(track.siteNames)}}
@@ -50,9 +54,11 @@
         </b-tab-item>
 
         <b-tab-item label="Runs">
-          <b-table 
-            :data="allRuns">
+          <b-table :data="allRuns" :selected.sync="selectedRun">
             <template slot-scope="props">
+              <b-table-column field="${index}" label="Index" centered>
+                {{ props.index + 1 }}
+              </b-table-column>
               <b-table-column field="startTime" label="Time" centered>
                 <span >
                   {{ displayable.date(props.row.points[0].time) }}, 
@@ -86,10 +92,12 @@
         </b-tab-item>
 
         <b-tab-item label="Clusters">
-          <b-table 
-            :data="clusters">
+          <b-table :data="clusters" :selected.sync="selectedCluster">
             <template slot-scope="props">
-              <b-table-column field="start" label="start" centered>
+              <b-table-column field="${index}" label="Index" centered>
+                {{ props.index + 1 }}
+              </b-table-column>
+              <b-table-column field="start" label="Start" centered>
                 <span >
                   {{ displayable.time(props.row.startTime, track.timezoneInfo) }}
                 </span>
@@ -124,6 +132,10 @@ import { emptySearchTrack, SearchTrack } from '@/models/SearchResults'
 import { GpxFeatureGroup } from '@/utils/GpxFeatureGroup.ts'
 import { displayable } from '@/utils/Displayable'
 
+interface StringMapPath {
+  [key: string]: L.Path
+}
+
 @Component({})
 export default class Map extends Vue {
   private displayable = displayable
@@ -137,6 +149,12 @@ export default class Map extends Vue {
   private selectedInfoText = ''
   private infoVisible = false
   private activeInfoTab = 0
+  private selectedRun = Object()
+  private selectedCluster = Object()
+  private clusterPolyMap: StringMapPath = { }
+  private clusterSelectionOptions = { color: 'red', fillOpacity: 0.7 }
+  private runPolyMap: StringMapPath = { }
+  private runSelectionOptions = { color: '#0000FF', weight: 5, dashArray: '', opacity: 0.6 }
   private speedSeries = [{
     name: 'Speed',
     data: [{ x: '1', y: 3.1 }],
@@ -224,18 +242,17 @@ export default class Map extends Vue {
       return
     }
 
-    const options = { color: 'red', fillOpacity: 0.7 }
     this.clusters = gps.clusters
     let index = 1
     const l = gps.clusters.map(c => {
       const clusterIndex = index
-      let l = new L.Rectangle([[c.bounds.min.lat, c.bounds.min.lon], [c.bounds.max.lat, c.bounds.max.lon]], options)
+      let l = new L.Rectangle([[c.bounds.min.lat, c.bounds.min.lon], [c.bounds.max.lat, c.bounds.max.lon]], this.clusterSelectionOptions)
       l.on('click', e => {
-        const m = `Cluster #${clusterIndex}, ${this.displayable.durationSeconds(c.seconds)}, ` +
-          `${c.countStops} stops, starting ${this.time(c.startTime.toString())}`
-        this.setSelection(e, l, options, m)
+        this.setSelection(e, l, this.clusterSelectionOptions, this.clusterSelectionMessage(clusterIndex, c))
+        this.selectedCluster = c
       })
       index += 1
+      this.clusterPolyMap[c.startTime.toString()] = l
       return l
     })
     const layer = new GpxFeatureGroup(l)
@@ -267,7 +284,6 @@ export default class Map extends Vue {
   }
 
   private addRuns(runs: GpsRun[], label: string) {
-    const options = { color: '#0000FF', weight: 5, dashArray: '', opacity: 0.6 }
     let index = 1
     const runLines = runs.map(r => {
         const runIndex = index
@@ -276,15 +292,13 @@ export default class Map extends Vue {
           return new L.LatLng(p.latitude, p.longitude)
         })
 
-        const line = new L.Polyline(runLatLngList, options)
+        const line = new L.Polyline(runLatLngList, this.runSelectionOptions)
         line.on('click', e => {
-          const m = `run #${runIndex}, ${displayable.distanceKilometers(r.kilometers)} in ` +
-            `${this.displayable.durationSeconds(r.seconds)}, ` +
-            `${this.displayable.speed(r.seconds, r.kilometers)}, ` +
-            `${r.points.length} points, starting ${this.time(r.points[0].time)}`
-          this.setSelection(e, line, options, m)
+          this.setSelection(e, line, this.runSelectionOptions, this.runSelectionMessage(runIndex, r))
+          this.selectedRun = r
         })
         index += 1
+        this.runPolyMap[r.points[0].time] = line
         return line
     })
 
@@ -303,8 +317,10 @@ export default class Map extends Vue {
   }
 
   private setSelection(e: any, path: L.Path, options: {}, message: string) {
-    e.originalEvent._gpxHandled = true
-    e.originalEvent.stopImmediatePropagation()
+    if (e) {
+      e.originalEvent._gpxHandled = true
+      e.originalEvent.stopImmediatePropagation()
+    }
 
     this.clearSelection()
     this.selectedInfoText = message
@@ -319,6 +335,42 @@ export default class Map extends Vue {
       this.selectedPath.setStyle(this.selectedOptions)
       this.selectedPath = undefined
     }
+  }
+
+  private clusterSelectionMessage(index: number, cluster: GpsClusterStop): string {
+    return `Cluster #${index}, ${this.displayable.durationSeconds(cluster.seconds)}, ` +
+      `${cluster.countStops} stops, starting ${this.time(cluster.startTime.toString())}`
+  }
+
+  private runSelectionMessage(index: number, run: GpsRun): string {
+    return `run #${index}, ${displayable.distanceKilometers(run.kilometers)} in ` +
+      `${this.displayable.durationSeconds(run.seconds)}, ` +
+      `${this.displayable.speed(run.seconds, run.kilometers)}, ` +
+      `${run.points.length} points, starting ${this.time(run.points[0].time)}`
+  }
+
+  @Watch('selectedCluster')
+  private onClusterSelectionChanged(to: any, from: any) {
+    const cluster = this.selectedCluster as GpsClusterStop
+    let index = 0
+    for (const c of this.clusters) {
+      index += 1
+      if (c.startTime === cluster.startTime) { break }
+    }
+    const path = this.clusterPolyMap[cluster.startTime.toString()]
+    this.setSelection(null, path, this.clusterSelectionOptions, this.clusterSelectionMessage(index, cluster))
+  }
+
+  @Watch('selectedRun')
+  private onRunSelectionChanged(to: any, from: any) {
+    const run = this.selectedRun as GpsRun
+    let index = 0
+    for (const r of this.allRuns) {
+      index += 1
+      if (r.points[0].time === run.points[0].time) { break }
+    }
+    const line = this.runPolyMap[run.points[0].time]
+    this.setSelection(null, line, this.runSelectionOptions, this.runSelectionMessage(index, run))
   }
 
   private initializeMap() {

@@ -27,6 +27,13 @@ export class Displayable {
     return `${hours}:${this.pad(minutes, 2)}:${this.pad(sec, 2)}`
   }
 
+  public distance(track: SearchTrack): string {
+    if (!track.distanceKilometers) {
+      return '--'
+    }
+    return this.distanceKilometers(track.distanceKilometers)
+  }
+
   public distanceKilometers(km: number): string {
       if (km < 0.001) {
         return `${Math.round(km * 1000 * 100)} centimeters`
@@ -60,6 +67,16 @@ public dayOfWeek(date: string): string {
 
   public longDate(date: string): string {
     return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  }
+
+  public shortTime(date: string, tzInfo?: SearchTimezoneInfo): string {
+    const ds = this.time(date, tzInfo)
+    const ampm = ds.substr(ds.length - 2)
+    const t = ds.substring(0, 5)
+    if (t.endsWith(':')) {
+      return t.substring(0, 4) + '\xa0' + ampm
+    }
+    return t + '\xa0' + ampm
   }
 
   public time(date: string, tzInfo?: SearchTimezoneInfo): string {

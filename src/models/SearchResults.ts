@@ -14,6 +14,9 @@ export interface SearchTrack {
     startTime: string
     endTime: string
     timezoneInfo: SearchTimezoneInfo
+    distanceKilometers: number
+    movingSeconds: number
+    durationSeconds: number
 }
 
 export interface SearchTimezoneInfo {
@@ -35,6 +38,9 @@ export const emptySearchTrack: SearchTrack = {
         id: '',
         tag: '',
     },
+    distanceKilometers: 0,
+    movingSeconds: 0,
+    durationSeconds: 0,
 } as SearchTrack
 
 
