@@ -34,4 +34,17 @@ export class Geo {
     public static toRad(n: number) {
       return n * Math.PI / 180
     }
+
+    public static closestPoint(points: GpsPoint[], lat: number, lon: number): GpsPoint {
+      let closestPoint = points[0]
+      let closest = this.distanceLL(points[0].latitude, points[0].longitude, lat, lon)
+      points.forEach( (p) => {
+        const d = this.distanceLL(p.latitude, p.longitude, lat, lon)
+        if (d < closest) {
+          closest = d
+          closestPoint = p
+        }
+      })
+      return closestPoint
+    }
 }

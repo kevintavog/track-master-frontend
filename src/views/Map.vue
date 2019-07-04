@@ -149,6 +149,7 @@ import { searchService } from '@/services/SearchService'
 import { emptySearchTrack, SearchTrack } from '@/models/SearchResults'
 import { GpxFeatureGroup } from '@/utils/GpxFeatureGroup.ts'
 import { displayable } from '@/utils/Displayable'
+import { close } from 'inspector';
 
 interface StringMapPath {
   [key: string]: L.Path
@@ -306,7 +307,6 @@ export default class Map extends Vue {
         const l = new L.Circle([s.latitude, s.longitude], options)
         const stopIndex = index
         l.on('click', (e) => {
-          const me = e as L.LeafletMouseEvent
           const m = `Stop #${stopIndex}: ${this.time(s.time)}`
           this.setSelection(e, l, options, m)
         })
@@ -329,9 +329,16 @@ export default class Map extends Vue {
 
         const line = new L.Polyline(runLatLngList, this.runSelectionOptions)
         line.on('click', (e) => {
-          this.setSelection(e, line, this.runSelectionOptions, this.runSelectionMessage(runIndex, r))
+          const message = this.runSelectionMessage(runIndex, r)
+          this.setSelection(e, line, this.runSelectionOptions, message)
           this.skipFitBounds = true
           this.selectedRun = r
+
+          const me = e as L.LeafletMouseEvent
+          const closestPoint = Geo.closestPoint(r.points, me.latlng.lat, me.latlng.lng)
+          const m = `; [ ${this.time(closestPoint.time)}, ` +
+            `${this.displayable.speedKmh(closestPoint.movingAverageKmH)} ]`
+          this.setSelectedMessage(message + m)
         })
         index += 1
         this.runPolyMap[r.points[0].time] = line
@@ -362,11 +369,13 @@ export default class Map extends Vue {
       e.originalEvent.stopImmediatePropagation()
     }
 
-    this.clearSelection()
+    if (path !== this.selectedPath) {
+      this.clearSelection()
+      this.selectedPath = path
+      this.selectedOptions = options
+      path.setStyle({color: '#FF33FF', weight: 10, opacity: 0.8})
+    }
     this.setSelectedMessage(message)
-    this.selectedPath = path
-    this.selectedOptions = options
-    path.setStyle({color: '#FF33FF', weight: 7, opacity: 0.8})
   }
 
   private clearSelection() {
@@ -386,10 +395,10 @@ export default class Map extends Vue {
 
   private runSelectionMessage(index: number, run: GpsRun): string {
     return `Run #${index}: ${this.time(run.points[0].time)}, ` +
-      `${displayable.distanceKilometers(run.kilometers)} in ` +
+      `${displayable.distanceKilometers(run.kilometers)}, ` +
       `${this.displayable.durationSeconds(run.seconds)}, ` +
       `${this.displayable.speed(run.seconds, run.kilometers)}, ` +
-      `${run.points.length} points`
+      `${run.points.length} pts`
   }
 
   @Watch('selectedCluster')
