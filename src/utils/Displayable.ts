@@ -34,12 +34,19 @@ export class Displayable {
     return this.distanceKilometers(track.distanceKilometers)
   }
 
+  public distanceMeters(meters: number): string {
+    return this.distanceKilometers(meters / 1000.0)
+  }
+
   public distanceKilometers(km: number): string {
       if (km < 0.001) {
-        return `${Math.round(km * 1000 * 100)} centimeters`
+        return `${Math.round(km * 1000 * 100) / 100} meters`
       }
       if (km < 1.0) {
-          return `${Math.round(km * 1000)} meters`
+        if (km < 0.010) {
+          return `${Math.round(km * 1000 * 10) / 10} meters`
+        }
+        return `${Math.round(km * 1000)} meters`
       }
       return `${Math.round(100 * km) / 100} km`
   }

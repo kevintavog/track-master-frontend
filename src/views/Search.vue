@@ -1,5 +1,8 @@
 <template>
   <div class="search">
+    <b-notification v-for="m in messages" v-bind:key="m" type="is-danger" role="alert">
+      {{ m }}
+    </b-notification>
     <b-field grouped class="horz-margins">
       <b-input placeholder="Search..." type="search" icon="magnify" autocapitalize="none" autofocus expanded>
       </b-input>
@@ -104,6 +107,7 @@ import { displayable } from '@/utils/Displayable'
 
 @Component({})
 export default class Search extends Vue {
+  private messages: string[] = []
   private searchResults: SearchResults = { matches: [], totalMatches: 0 }
   private openedDetails: number[] = []
   private currentPage: number = 1
@@ -136,7 +140,7 @@ export default class Search extends Vue {
         this.searchResults = results
       })
       .catch((err) => {
-        console.log(err)
+        this.messages.push(`Search failed:`, err)
       })
   }
 
