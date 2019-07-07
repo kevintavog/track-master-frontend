@@ -105,8 +105,8 @@
           
         </b-tab-item>
 
-        <b-tab-item label="Clusters">
-          <b-table :data="clusters" :selected.sync="selectedCluster">
+        <b-tab-item label="Stops">
+          <b-table :data="stops" :selected.sync="selectedStop">
             <template slot-scope="props">
               <b-table-column field="${index}" label="Index" centered>
                 {{ props.index + 1 }}
@@ -124,9 +124,9 @@
                   {{ displayable.durationSeconds(props.row.seconds) }}
                 </span>
               </b-table-column>
-              <b-table-column field="count" label="# Stops" centered>
+              <b-table-column field="count" label="# Points" centered>
                 <span >
-                  {{ props.row.countStops }}
+                  {{ props.row.countPoints }}
                 </span>
               </b-table-column>
             </template>
@@ -142,14 +142,13 @@
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator'
 import L from 'leaflet'
-import { GpxParser, GpxSegment } from '@/models/Gpx'
+import { GpxParser, GpxSegment, GpxPoint } from '@/models/Gpx'
 import { Geo } from '@/utils/Geo'
-import { emptyGpsPoint, Gps, GpsBounds, GpsClusterStop, GpsPoint, GpsRun, GpsTrack } from '@/models/Gps'
+import { emptyGpsPoint, Gps, GpsBounds, GpsPoint, GpsRun, GpsStop, GpsTrack } from '@/models/Gps'
 import { searchService } from '@/services/SearchService'
 import { emptySearchTrack, SearchTrack } from '@/models/SearchResults'
 import { GpxFeatureGroup } from '@/utils/GpxFeatureGroup.ts'
 import { displayable } from '@/utils/Displayable'
-import { close } from 'inspector';
 
 interface StringMapPath {
   [key: string]: L.Path
@@ -163,20 +162,24 @@ export default class Map extends Vue {
   private mapLayersControl: L.Control.Layers | null = null
   private track: SearchTrack = emptySearchTrack
   private allRuns: GpsRun[] = []
-  private clusters: GpsClusterStop[] = []
+  private stops: GpsStop[] = []
   private selectedPath?: L.Path
   private selectedOptions = {}
   private selectedInfoText = ''
+  private selectedPoint?: L.Circle
   private infoVisible = false
   private activeInfoTab = 0
   private selectedRun = Object()
-  private selectedCluster = Object()
+  private selectedStop = Object()
   private skipFitBounds = false
-  private clusterPolyMap: StringMapPath = { }
-  private clusterSelectionOptions = {
-    radius: 20, weight: 6, color: 'red', opacity: 0.9, fillColor: 'red', fillOpacity: 0.5 }
+  private stopPolyMap: StringMapPath = { }
+  private stopSelectionOptions = {
+    radius: 8, weight: 6, color: 'red', opacity: 0.8, fillColor: 'red', fillOpacity: 0.4 }
+  private shortStopSelctionOptions = {
+    radius: 5, weight: 3, color: '#990000', opacity: 0.5, fillColor: 'orange', fillOpacity: 0.9 }
   private runPolyMap: StringMapPath = { }
   private runSelectionOptions = { color: '#0000FF', weight: 5, dashArray: '', opacity: 0.6 }
+  private badRunOptions = { color: '#003300', weight: 6, dashArray: '20 20', opacity: 0.7 }
   private originalGpxLoaded = false
   private speedSeries = [{
     name: 'Speed',
@@ -252,8 +255,8 @@ export default class Map extends Vue {
           }
         }
 
-        this.addClusters(gps)
-        this.addRuns(this.allRuns, 'Runs')
+        this.addRuns(this.allRuns, 'Runs', true, this.runSelectionOptions)
+        this.addRuns(gps.removedRuns, 'Bad runs', false, this.badRunOptions)
         this.addStops(gps)
       })
   }
@@ -267,58 +270,47 @@ export default class Map extends Vue {
       { maxZoom: zoom, padding: [5, 5] })
   }
 
-  private addClusters(gps: Gps) {
-    if (!gps.clusters) {
-      this.clusters = []
-      return
-    }
-
-    this.clusters = gps.clusters
-    let index = 1
-    const clusterPaths = gps.clusters.map((c) => {
-      const clusterIndex = index
-      const l = new L.Circle([
-        c.bounds.min.lat + ((c.bounds.max.lat - c.bounds.min.lat) / 2),
-        c.bounds.min.lon + ((c.bounds.max.lon - c.bounds.min.lon) / 2),
-      ],
-      this.clusterSelectionOptions)
-      l.on('click', (e) => {
-        this.setSelection(e, l, this.clusterSelectionOptions, this.clusterSelectionMessage(clusterIndex, c))
-        this.skipFitBounds = true
-        this.selectedCluster = c
-      })
-      index += 1
-      this.clusterPolyMap[c.startTime.toString()] = l
-      return l
-    })
-    const layer = new GpxFeatureGroup(clusterPaths)
-    layer.addTo(this.map as L.Map)
-    this.addToMapLayersControl(layer, `Clusters`)
-  }
-
   private addStops(gps: Gps) {
     if (!gps.stops) {
+      this.stops = []
       return
     }
 
-    const options = { radius: 5, weight: 3, color: '#9900FF', opacity: 0.5, fillColor: 'orange', fillOpacity: 0.9 }
+    this.stops = gps.stops
     let index = 1
     const stops = gps.stops.map((s) => {
-        const l = new L.Circle([s.latitude, s.longitude], options)
-        const stopIndex = index
-        l.on('click', (e) => {
-          const m = `Stop #${stopIndex}: ${this.time(s.time)}`
-          this.setSelection(e, l, options, m)
-        })
-        index += 1
-        return l
+      const options = this.stopOptions(s)
+      const l = new L.Circle([
+        s.bounds.min.lat + ((s.bounds.max.lat - s.bounds.min.lat) / 2),
+        s.bounds.min.lon + ((s.bounds.max.lon - s.bounds.min.lon) / 2),
+      ], options)
+      const stopIndex = index
+      l.on('click', (e) => {
+        this.setSelection(e, l, options, this.stopSelectionMessage(index, s))
+        this.skipFitBounds = true
+        this.selectedStop = s
+      })
+      index += 1
+      this.stopPolyMap[s.startTime.toString()] = l
+      return l
     })
-    const stopLayer = new GpxFeatureGroup(stops)
+    let stopLayer = new GpxFeatureGroup(stops)
     stopLayer.addTo(this.map as L.Map)
     this.addToMapLayersControl(stopLayer, `Stops`)
+
+    const stopOutlines = gps.stops.map((s) => {
+      const l = new L.Rectangle([
+        [s.bounds.min.lat, s.bounds.min.lon],
+        [s.bounds.max.lat, s.bounds.max.lon],
+      ],
+      { color: '#002200', fill: false})
+      return l
+    })
+    stopLayer = new GpxFeatureGroup(stopOutlines)
+    stopLayer.addTo(this.map as L.Map)
   }
 
-  private addRuns(runs: GpsRun[], label: string) {
+  private addRuns(runs: GpsRun[], label: string, addToMap: boolean, options: Object) {
     let index = 1
     const runLines = runs.map((r) => {
         const runIndex = index
@@ -327,10 +319,10 @@ export default class Map extends Vue {
           return new L.LatLng(p.latitude, p.longitude)
         })
 
-        const line = new L.Polyline(runLatLngList, this.runSelectionOptions)
+        const line = new L.Polyline(runLatLngList, options)
         line.on('click', (e) => {
           const message = this.runSelectionMessage(runIndex, r)
-          this.setSelection(e, line, this.runSelectionOptions, message)
+          this.setSelection(e, line, options, message)
           this.skipFitBounds = true
           this.selectedRun = r
 
@@ -339,6 +331,7 @@ export default class Map extends Vue {
           const m = `; [ ${this.time(closestPoint.time)}, ` +
             `${this.displayable.speedKmh(closestPoint.movingAverageKmH)} ]`
           this.setSelectedMessage(message + m)
+          this.selectPoint(closestPoint)
         })
         index += 1
         this.runPolyMap[r.points[0].time] = line
@@ -346,7 +339,9 @@ export default class Map extends Vue {
     })
 
     const runLayer = new GpxFeatureGroup(runLines)
-    runLayer.addTo(this.map as L.Map)
+    if (addToMap) {
+      runLayer.addTo(this.map as L.Map)
+    }
     this.addToMapLayersControl(runLayer, label)
   }
 
@@ -363,10 +358,27 @@ export default class Map extends Vue {
     this.selectedInfoText = message
   }
 
+  private selectPoint(point: GpsPoint) {
+    if (this.selectedPoint) {
+      this.selectedPoint
+        .setLatLng([point.latitude, point.longitude])
+        .addTo(this.map!)
+    } else {
+      this.selectedPoint = new L.Circle(
+        [point.latitude, point.longitude],
+        { color: '#000033', radius: 1.5 })
+        .addTo(this.map!)
+    }
+  }
+
   private setSelection(e: any, path: L.Path, options: {}, message: string) {
     if (e) {
       e.originalEvent._gpxHandled = true
       e.originalEvent.stopImmediatePropagation()
+    }
+
+    if (this.selectedPoint) {
+      this.selectedPoint.removeFrom(this.map!)
     }
 
     if (path !== this.selectedPath) {
@@ -379,6 +391,9 @@ export default class Map extends Vue {
   }
 
   private clearSelection() {
+    if (this.selectedPoint) {
+      this.selectedPoint.removeFrom(this.map!)
+    }
     if (this.selectedPath) {
       this.setSelectedMessage('')
       this.selectedPath.setStyle(this.selectedOptions)
@@ -386,11 +401,11 @@ export default class Map extends Vue {
     }
   }
 
-  private clusterSelectionMessage(index: number, cluster: GpsClusterStop): string {
-    return `Cluster #${index}: ${this.time(cluster.startTime.toString())} - ` +
-      `${this.time(cluster.endTime.toString())}, ` +
-      `(${this.displayable.durationSeconds(cluster.seconds)}), ` +
-      `${cluster.countStops} stops`
+  private stopSelectionMessage(index: number, stop: GpsStop): string {
+    return `Stop #${index}: ${this.time(stop.startTime.toString())} - ` +
+      `${this.time(stop.endTime.toString())}, ` +
+      `(${this.displayable.durationSeconds(stop.seconds)}), ` +
+      `${stop.countPoints} points`
   }
 
   private runSelectionMessage(index: number, run: GpsRun): string {
@@ -401,18 +416,22 @@ export default class Map extends Vue {
       `${run.points.length} pts`
   }
 
-  @Watch('selectedCluster')
-  private onClusterSelectionChanged(to: any, from: any) {
-    const cluster = this.selectedCluster as GpsClusterStop
+  private stopOptions(stop: GpsStop) {
+    return stop.seconds >= 2 * 60 ? this.stopSelectionOptions : this.shortStopSelctionOptions
+  }
+
+  @Watch('selectedStop')
+  private onStopSelectionChanged(to: any, from: any) {
+    const stop = this.selectedStop as GpsStop
     let index = 0
-    for (const c of this.clusters) {
+    for (const s of this.stops) {
       index += 1
-      if (c.startTime === cluster.startTime) { break }
+      if (s.startTime === stop.startTime) { break }
     }
-    const path = this.clusterPolyMap[cluster.startTime.toString()]
-    this.setSelection(null, path, this.clusterSelectionOptions, this.clusterSelectionMessage(index, cluster))
+    const path = this.stopPolyMap[stop.startTime.toString()]
+    this.setSelection(null, path, this.stopOptions(stop), this.stopSelectionMessage(index, stop))
     if (!this.skipFitBounds) {
-      this.fitBounds(cluster.bounds)
+      this.fitBounds(stop.bounds)
     }
     this.skipFitBounds = false
   }

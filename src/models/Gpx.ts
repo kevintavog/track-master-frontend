@@ -44,6 +44,7 @@ export interface GpxPoint {
 
 export class GpxParser {
 
+/*
     public dates(gpxFile: GpxFile): [Date, Date] {
         let earliestSet = false
         let earliest = new Date()
@@ -59,6 +60,7 @@ export class GpxParser {
         }
         return [earliest, latest]
     }
+*/
 
     public parse(xml: string): Promise<GpxFile> {
         return new Promise((resolve, reject) => {

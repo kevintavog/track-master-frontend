@@ -2,8 +2,8 @@ import { SearchTimezoneInfo } from '@/models/SearchResults'
 
 export interface Gps {
     tracks: GpsTrack[]
-    stops: GpsPoint[]
-    clusters: GpsClusterStop[]
+    stops: GpsStop[]
+    removedRuns: GpsRun[]
     timezoneInfo: SearchTimezoneInfo
     startTime: Date
     endTime: Date
@@ -13,10 +13,12 @@ export interface Gps {
     movingSeconds: number
 }
 
-export interface GpsClusterStop {
+export interface GpsStop {
     startTime: Date
     endTime: Date
-    countStops: number
+    firstPoint: GpsPoint
+    lastPoint: GpsPoint
+    countPoints: number
     bounds: GpsBounds
     seconds: number
 }
