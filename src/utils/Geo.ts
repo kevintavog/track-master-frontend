@@ -7,6 +7,19 @@ export class Geo {
       return 6372.8 * 1000
     }
 
+    public static normalizeDegrees(degrees: number): number {
+      if (degrees >= 0 && degrees <= 360) {
+        return degrees
+      }
+      if (degrees > 360) {
+        return degrees - 360
+      }
+      if (degrees < 0) {
+        return degrees + 360
+      }
+      return degrees
+    }
+
     // Returns the distance in meters
     public static distanceGps(start: GpsPoint, end: GpsPoint) {
         return this.distanceLL(start.latitude, start.longitude, end.latitude, end.longitude)

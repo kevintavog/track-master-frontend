@@ -64,6 +64,7 @@ export interface GpsPoint {
     kilometersIntoRun: number
     secondsIntoRun: number
     calculatedSpeedKmHFromPrevious: number
+    calculatedCourseFromPrevious: number
     movingAverageKmH: number
 }
 
@@ -80,6 +81,7 @@ export const emptyGpsPoint: GpsPoint = {
     kilometersIntoRun: 0,
     secondsIntoRun: 0,
     calculatedSpeedKmHFromPrevious: 0,
+    calculatedCourseFromPrevious: 0,
     movingAverageKmH: 0,
 } as GpsPoint
 

@@ -149,6 +149,7 @@ import { searchService } from '@/services/SearchService'
 import { emptySearchTrack, SearchTrack } from '@/models/SearchResults'
 import { GpxFeatureGroup } from '@/utils/GpxFeatureGroup.ts'
 import { displayable } from '@/utils/Displayable'
+import { DateTime } from 'luxon'
 
 interface StringMapPath {
   [key: string]: L.Path
@@ -310,7 +311,7 @@ export default class Map extends Vue {
     stopLayer.addTo(this.map as L.Map)
   }
 
-  private addRuns(runs: GpsRun[], label: string, addToMap: boolean, options: Object) {
+  private addRuns(runs: GpsRun[], label: string, addToMap: boolean, options: object) {
     let index = 1
     const runLines = runs.map((r) => {
         const runIndex = index
@@ -340,9 +341,44 @@ export default class Map extends Vue {
 
     const runLayer = new GpxFeatureGroup(runLines)
     if (addToMap) {
-      runLayer.addTo(this.map as L.Map)
+      runLayer.addTo(this.map!)
     }
     this.addToMapLayersControl(runLayer, label)
+
+    const arrowPoints = runs.flatMap( (r) => this.getArrowPoints(r)).filter( (a) => !!a )
+    const arrowIcons = arrowPoints.map( (pt) => {
+      return this.createDirectionMarker(pt.latitude, pt.longitude, pt.calculatedCourseFromPrevious)
+    })
+    const mLayer = new GpxFeatureGroup(arrowIcons)
+    mLayer.addTo(this.map!)
+  }
+
+  private createDirectionMarker(lat: number, lon: number, headingDegrees: number): L.Marker {
+    return new L.Marker(
+      [lat, lon],
+      { icon: new L.DivIcon({
+          className : 'arrowIcon',
+          iconSize: new L.Point(30, 30),
+          iconAnchor: new L.Point(15, 15),
+          html : `<div style = 'font-size: 20px; -webkit-transform: rotate(${headingDegrees} deg)'> ▲ </div>`,
+        }),
+      },
+    )
+  }
+
+  private getArrowPoints(run: GpsRun): GpsPoint[] {
+    if (run.points.length < 300) {
+      return [run.points[run.points.length / 2]]
+    }
+
+    let prevPoint = run.points[10]
+    return run.points.filter( (p) => {
+      if ((DateTime.fromISO(p.time).toSeconds() - DateTime.fromISO(prevPoint.time).toSeconds()) > 300) {
+        prevPoint = p
+        return true
+      }
+      return false
+    })
   }
 
   private addToMapLayersControl(layer: L.FeatureGroup, name: string) {
@@ -565,6 +601,10 @@ export default class Map extends Vue {
 
 .dropdown-menu, .dropdown-content {
   background: #444444;
+}
+
+.arrowIcon {
+  color: black;
 }
 
 a {
