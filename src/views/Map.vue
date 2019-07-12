@@ -142,6 +142,7 @@
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator'
 import L from 'leaflet'
+import LP from 'leaflet-polylinedecorator'
 import { GpxParser, GpxSegment, GpxPoint } from '@/models/Gpx'
 import { Geo } from '@/utils/Geo'
 import { emptyGpsPoint, Gps, GpsBounds, GpsPoint, GpsRun, GpsStop, GpsTrack } from '@/models/Gps'
@@ -339,18 +340,27 @@ export default class Map extends Vue {
         return line
     })
 
+    L.polylineDecorator(runLines[0], {
+      patterns: [{
+        offset: '35%',
+        repeat: '35%',
+        symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 1, weight: 5}}),
+      }]
+    }).addTo(this.map!)
+    
+
     const runLayer = new GpxFeatureGroup(runLines)
     if (addToMap) {
       runLayer.addTo(this.map!)
     }
     this.addToMapLayersControl(runLayer, label)
 
-    const arrowPoints = runs.flatMap( (r) => this.getArrowPoints(r)).filter( (a) => !!a )
-    const arrowIcons = arrowPoints.map( (pt) => {
-      return this.createDirectionMarker(pt.latitude, pt.longitude, pt.calculatedCourseFromPrevious)
-    })
-    const mLayer = new GpxFeatureGroup(arrowIcons)
-    mLayer.addTo(this.map!)
+    // const arrowPoints = runs.flatMap( (r) => this.getArrowPoints(r)).filter( (a) => !!a )
+    // const arrowIcons = arrowPoints.map( (pt) => {
+    //   return this.createDirectionMarker(pt.latitude, pt.longitude, pt.calculatedCourseFromPrevious)
+    // })
+    // const mLayer = new GpxFeatureGroup(arrowIcons)
+    // mLayer.addTo(this.map!)
   }
 
   private createDirectionMarker(lat: number, lon: number, headingDegrees: number): L.Marker {
@@ -601,10 +611,6 @@ export default class Map extends Vue {
 
 .dropdown-menu, .dropdown-content {
   background: #444444;
-}
-
-.arrowIcon {
-  color: black;
 }
 
 a {
