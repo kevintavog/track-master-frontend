@@ -142,7 +142,6 @@
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator'
 import L from 'leaflet'
-import LP from 'leaflet-polylinedecorator'
 import { GpxParser, GpxSegment, GpxPoint } from '@/models/Gpx'
 import { Geo } from '@/utils/Geo'
 import { emptyGpsPoint, Gps, GpsBounds, GpsPoint, GpsRun, GpsStop, GpsTrack } from '@/models/Gps'
@@ -340,45 +339,38 @@ export default class Map extends Vue {
         return line
     })
 
-    L.polylineDecorator(runLines[0], {
-      patterns: [{
-        offset: '35%',
-        repeat: '35%',
-        symbol: L.Symbol.arrowHead({pixelSize: 10, pathOptions: {fillOpacity: 1, weight: 5}}),
-      }]
-    }).addTo(this.map!)
-    
-
-    const runLayer = new GpxFeatureGroup(runLines)
+    const arrowOptions: L.PolylineOptions = Object.assign({}, options)
+    arrowOptions.color = '#330066'
+    arrowOptions.weight = 5
+    const arrowPoints = runs.flatMap( (r) => this.getArrowPoints(r)).filter( (a) => !!a )
+    const arrowLines = arrowPoints.map( (pt) => {
+      return this.createArrowLine(pt.latitude, pt.longitude, pt.calculatedCourseFromPrevious, arrowOptions)
+    })
+    const runLayer = new GpxFeatureGroup(runLines.concat(arrowLines))
     if (addToMap) {
       runLayer.addTo(this.map!)
     }
     this.addToMapLayersControl(runLayer, label)
-
-    // const arrowPoints = runs.flatMap( (r) => this.getArrowPoints(r)).filter( (a) => !!a )
-    // const arrowIcons = arrowPoints.map( (pt) => {
-    //   return this.createDirectionMarker(pt.latitude, pt.longitude, pt.calculatedCourseFromPrevious)
-    // })
-    // const mLayer = new GpxFeatureGroup(arrowIcons)
-    // mLayer.addTo(this.map!)
   }
 
-  private createDirectionMarker(lat: number, lon: number, headingDegrees: number): L.Marker {
-    return new L.Marker(
+  private createArrowLine(lat: number, lon: number, headingDegrees: number, options: object): L.Polyline {
+    const left = Geo.pointAlongBearing(lat, lon, Geo.normalizeDegrees(headingDegrees + 150), 20)
+    const right = Geo.pointAlongBearing(lat, lon, Geo.normalizeDegrees(headingDegrees - 150), 20)
+    return new L.Polyline([
+      [left.lat, left.lon],
       [lat, lon],
-      { icon: new L.DivIcon({
-          className : 'arrowIcon',
-          iconSize: new L.Point(30, 30),
-          iconAnchor: new L.Point(15, 15),
-          html : `<div style = 'font-size: 20px; -webkit-transform: rotate(${headingDegrees} deg)'> ▲ </div>`,
-        }),
-      },
-    )
+      [right.lat, right.lon],
+    ],
+    options)
   }
 
   private getArrowPoints(run: GpsRun): GpsPoint[] {
-    if (run.points.length < 300) {
-      return [run.points[run.points.length / 2]]
+    const len = run.points.length
+    if (len < 7 * 60) {
+      return [run.points[Math.floor(len / 2)]]
+    }
+    if (len < 15 * 60) {
+      return [run.points[Math.floor(len / 3)], run.points[Math.floor(len * 2 / 3)]]
     }
 
     let prevPoint = run.points[10]
