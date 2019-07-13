@@ -75,7 +75,7 @@
               </b-table-column>
               <b-table-column field="startTime" label="Time" centered>
                 <span >
-                  {{ displayable.date(props.row.points[0].time) }}, 
+                  {{ displayable.date(props.row.points[0].time, props.row.timezoneInfo) }}, 
                   {{ displayable.time(props.row.points[0].time, track.timezoneInfo) }} - 
                   {{ displayable.time(props.row.points[props.row.points.length - 1].time, track.timezoneInfo) }}
                 </span>
@@ -229,7 +229,7 @@ export default class Map extends Vue {
     if ('id' in props) {
       searchService.getTrack(props.id as string)
         .then((result) => { this.track = result })
-        .catch((err) => { this.messages.push(`Failed retrieving track`, err) })
+        .catch((err) => { this.messages.push(`Failed retrieving track ` + err) })
       this.loadTrack(props.id as string)
     }
   }
@@ -542,14 +542,14 @@ export default class Map extends Vue {
             }
           })
           .catch((err) => {
-            this.messages.push(`GPX parse error`, err)
+            this.messages.push(`GPX parse error ` + err)
           })
           .finally( () => {
             this.setSelectedMessage(``)
           })
       })
       .catch((err) => {
-        this.messages.push(`GPX load error`, err)
+        this.messages.push(`GPX load error ` + err)
         this.setSelectedMessage(``)
       })
   }

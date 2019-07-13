@@ -34,7 +34,7 @@
 
         <b-table-column field="start" label="Date" centered>
           <span >
-            {{ displayable.date(props.row.startTime) }}
+            {{ displayable.date(props.row.startTime, props.row.timezoneInfo) }}
           </span>
         </b-table-column>
 
@@ -140,7 +140,7 @@ export default class Search extends Vue {
         this.searchResults = results
       })
       .catch((err) => {
-        this.messages.push(`Search failed:`, err)
+        this.messages.push(`Search failed: ` + err)
       })
   }
 
