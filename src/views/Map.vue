@@ -509,9 +509,9 @@ export default class Map extends Vue {
 
     L.control.zoom({ position: 'topright' }).addTo(this.map)
 
-    L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors',
+        attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
     }).addTo(this.map)
 
     L.control.scale({ position: 'bottomright' }).addTo(this.map)
@@ -609,6 +609,10 @@ export default class Map extends Vue {
 
 .dropdown-menu, .dropdown-content {
   background: #444444;
+}
+
+.leaflet-control-attribution > a {
+  color: black !important;
 }
 
 a {
