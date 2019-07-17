@@ -159,6 +159,7 @@ interface StringMapPath {
 export default class Map extends Vue {
   @Inject('trackMaster') private trackMaster!: TrackMasterServer
   private isGpxLoadingSupported = process.env.NODE_ENV !== 'production'
+  private showStopBoundingBoxes = process.env.NODE_ENV !== 'production'
   private displayable = displayable
   private messages: string[] = []
   private map?: L.Map
@@ -302,16 +303,18 @@ export default class Map extends Vue {
     stopLayer.addTo(this.map as L.Map)
     this.addToMapLayersControl(stopLayer, `Stops`)
 
-    const stopOutlines = gps.stops.map((s) => {
-      const l = new L.Rectangle([
-        [s.bounds.min.lat, s.bounds.min.lon],
-        [s.bounds.max.lat, s.bounds.max.lon],
-      ],
-      { color: '#002200', fill: false})
-      return l
-    })
-    stopLayer = new GpxFeatureGroup(stopOutlines)
-    stopLayer.addTo(this.map as L.Map)
+    if  (this.showStopBoundingBoxes) {
+      const stopOutlines = gps.stops.map((s) => {
+        const l = new L.Rectangle([
+          [s.bounds.min.lat, s.bounds.min.lon],
+          [s.bounds.max.lat, s.bounds.max.lon],
+        ],
+        { color: '#002200', fill: false})
+        return l
+      })
+      stopLayer = new GpxFeatureGroup(stopOutlines)
+      stopLayer.addTo(this.map as L.Map)
+    }
   }
 
   private addRuns(runs: GpsRun[], label: string, addToMap: boolean, options: object) {
