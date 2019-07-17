@@ -5,14 +5,16 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+import { Component, Inject, Provide, Vue } from 'vue-property-decorator'
 
-@Component({
-  components: {
+// import { SearchService } from '@/services/SearchService'
+import { StaticService } from '@/services/StaticService'
+import { TrackMasterServer } from '@/services/TrackMasterServer'
 
-  },
-})
-export default class App extends Vue {}
+@Component
+export default class App extends Vue {
+  @Provide('trackMaster') private trackMaster: TrackMasterServer = new StaticService()
+}
 </script>
 
 <style>

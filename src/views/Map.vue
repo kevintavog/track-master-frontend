@@ -1,7 +1,7 @@
 <template>
   <div class="map box">
     <div class="map-content" id="map" >
-      <div class="leaflet-top leaflet-left has-text-black">
+      <div v-if="isGpxLoadingSupported" class="leaflet-top leaflet-left has-text-black">
         <b-dropdown aria-role="list" class="has-text-black" >
           <button class="button is-small is-text has-background-black-bis has-text-primary has-pointer-events" slot="trigger">
               <b-icon icon="align-justify" />
@@ -140,12 +140,12 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator'
+import { Component, Inject, Vue, Watch } from 'vue-property-decorator'
 import L from 'leaflet'
 import { GpxParser, GpxSegment, GpxPoint } from '@/models/Gpx'
 import { Geo } from '@/utils/Geo'
 import { emptyGpsPoint, Gps, GpsBounds, GpsPoint, GpsRun, GpsStop, GpsTrack } from '@/models/Gps'
-import { searchService } from '@/services/SearchService'
+import { TrackMasterServer } from '@/services/TrackMasterServer'
 import { emptySearchTrack, SearchTrack } from '@/models/SearchResults'
 import { GpxFeatureGroup } from '@/utils/GpxFeatureGroup.ts'
 import { displayable } from '@/utils/Displayable'
@@ -157,6 +157,8 @@ interface StringMapPath {
 
 @Component({})
 export default class Map extends Vue {
+  @Inject('trackMaster') private trackMaster!: TrackMasterServer
+  private isGpxLoadingSupported = process.env.NODE_ENV !== 'production'
   private displayable = displayable
   private messages: string[] = []
   private map?: L.Map
@@ -227,9 +229,9 @@ export default class Map extends Vue {
 
     const props = this.$route.query
     if ('id' in props) {
-      searchService.getTrack(props.id as string)
+      this.trackMaster.getTrack(props.id as string)
         .then((result) => { this.track = result })
-        .catch((err) => { this.messages.push(`Failed retrieving track ` + err) })
+        .catch((err) => { this.messages.push(`Failed retrieving track: ` + err) })
       this.loadTrack(props.id as string)
     }
   }
@@ -241,7 +243,7 @@ export default class Map extends Vue {
   private loadTrack(id: string) {
     this.speedSeries[0].data = []
     this.allRuns = []
-    searchService.loadTrack(id)
+    this.trackMaster.loadTrack(id)
       .then((results) => {
         // This is silly - `results` is supposed to be a string already, but isn't.
         const gps = (results as unknown) as Gps
@@ -260,6 +262,7 @@ export default class Map extends Vue {
         this.addRuns(gps.removedRuns, 'Bad runs', false, this.badRunOptions)
         this.addStops(gps)
       })
+      .catch((err) => { this.messages.push(`Failed retrieving analyzed track: ` + err) })
   }
 
   private fitBounds(bounds: GpsBounds) {
@@ -528,7 +531,7 @@ export default class Map extends Vue {
       return
     }
     this.setSelectedMessage(`Loading original GPX...`)
-    searchService.loadOriginalTrack(this.track.id)
+    this.trackMaster.loadOriginalTrack(this.track.id)
       .then((results) => {
         new GpxParser().parse(results)
           .then((gpxFile) => {

@@ -8,7 +8,8 @@ Vue.use(Meta)
 
 export default new Router({
   mode: 'history',
-  base: process.env.NODE_ENV === 'production' ? 'trackmaster' : '',
+  base: process.env.NODE_ENV === 'production' ? 'published-tracks' : '',
+  // base: process.env.NODE_ENV === 'production' ? 'trackmaster' : '',
   routes: [
     {
       path: '/',

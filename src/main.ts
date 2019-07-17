@@ -9,8 +9,8 @@ import 'buefy/dist/buefy.css'
 
 Vue.use(Buefy, { defaultIconPack: 'fas' })
 
-import VueApexCharts from 'vue-apexcharts'
-Vue.component('apexchart', VueApexCharts)
+// import VueApexCharts from 'vue-apexcharts'
+// Vue.component('apexchart', VueApexCharts)
 
 Vue.config.productionTip = false
 

@@ -3,13 +3,14 @@
     <b-notification v-for="m in messages" v-bind:key="m" type="is-danger" role="alert">
       {{ m }}
     </b-notification>
-    <b-field grouped class="horz-margins">
+
+    <!-- <b-field grouped class="horz-margins">
       <b-input placeholder="Search..." type="search" icon="magnify" autocapitalize="none" autofocus expanded>
       </b-input>
       <p class="control">
         <button class="button is-primary">Search</button>
       </p>
-    </b-field>
+    </b-field> -->
 
     <b-pagination
       :total="searchResults.totalMatches"
@@ -113,14 +114,15 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator'
-import { searchService } from '@/services/SearchService'
+import { Component, Inject, Vue, Watch } from 'vue-property-decorator'
 import { SearchResults, SearchTrack } from '@/models/SearchResults'
 import { displayable } from '@/utils/Displayable'
+import { TrackMasterServer } from '@/services/TrackMasterServer'
 
 
 @Component({})
 export default class Search extends Vue {
+  @Inject('trackMaster') private trackMaster!: TrackMasterServer
   private messages: string[] = []
   private searchResults: SearchResults = { matches: [], totalMatches: 0 }
   private openedDetails: number[] = []
@@ -149,7 +151,7 @@ export default class Search extends Vue {
     }
     this.currentPage = page
 
-    searchService.list((page - 1) * this.pageSize, this.pageSize)
+    this.trackMaster.list((page - 1) * this.pageSize, this.pageSize)
       .then((results) => {
         this.searchResults = results
       })

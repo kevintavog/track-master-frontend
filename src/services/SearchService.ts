@@ -1,7 +1,8 @@
 import axios from 'axios'
 import { SearchResults, SearchTrack, TrackManagerErrorResponse } from '@/models/SearchResults'
+import { TrackMasterServer } from '@/services/TrackMasterServer'
 
-class SearchService {
+export class SearchService implements TrackMasterServer {
   // private static baseServerUrl = process.env.NODE_ENV === 'production' ? 'http://jupiter/findaphoto/' : '/'
   private static baseServerUrl = process.env.NODE_ENV !== 'production' ? 'http://localhost:8080/' : '/'
 
@@ -14,7 +15,7 @@ class SearchService {
         .then((response) => {
           resolve(response.data as SearchResults)
         }, (err) => {
-            reject(this.getErrorMessage(err))
+          reject(this.getErrorMessage(err))
         })
     })
   }
@@ -68,5 +69,3 @@ class SearchService {
     return message
   }
 }
-
-export const searchService = new SearchService()
