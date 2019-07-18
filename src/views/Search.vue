@@ -36,6 +36,7 @@
         <b-table-column field="start" label="Date" centered>
           <span >
             {{ displayable.date(props.row.startTime, props.row.timezoneInfo) }}
+            {{ displayable.dayOfWeek(props.row.startTime, props.row.timezoneInfo) }}
           </span>
         </b-table-column>
 

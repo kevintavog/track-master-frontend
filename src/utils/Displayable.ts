@@ -64,16 +64,20 @@ export class Displayable {
     return `${Math.round(10 * kmh) / 10} km/h`
   }
 
-  public dayOfWeek(date: string): string {
-    return DateTime.fromISO(date).weekdayLong
-  }
-
-  public date(date: string, tzInfo?: SearchTimezoneInfo): string {
+  public dayOfWeek(date: string | Date, tzInfo?: SearchTimezoneInfo): string {
     let tzId = 'UTC'
     if (tzInfo && tzInfo.id) {
         tzId = tzInfo.id
     }
-    return new Date(date).toLocaleDateString('en-US', { timeZone: tzId })
+    return DateTime.fromISO(date.toString()).setZone(tzId).weekdayLong
+  }
+
+  public date(date: string | Date, tzInfo?: SearchTimezoneInfo): string {
+    let tzId = 'UTC'
+    if (tzInfo && tzInfo.id) {
+        tzId = tzInfo.id
+    }
+    return new Date(date.toString()).toLocaleDateString('en-US', { timeZone: tzId })
   }
 
   public longDate(date: string): string {

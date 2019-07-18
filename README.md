@@ -10,14 +10,14 @@ npm install
 npm run serve
 ```
 
-### Compiles and minifies for production
+### Compiles and minifies for production (internal)
 ```
-npm run build
+npm run internal-build
 ```
 
-### Run your tests
+### Compiles and minifies for published tracks
 ```
-npm run test
+npm run published-build
 ```
 
 ### Lints and fixes files

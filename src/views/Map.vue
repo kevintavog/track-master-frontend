@@ -1,8 +1,11 @@
 <template>
   <div class="map box">
     <div class="map-content" id="map" >
-      <div v-if="isGpxLoadingSupported" class="leaflet-top leaflet-left has-text-black">
-        <b-dropdown aria-role="list" class="has-text-black" >
+      <div class="leaflet-top leaflet-left has-text-black">
+        <router-link class="has-background-black-bis has-text-primary home-button" :to="{ path: 'search' }">
+          <b-icon icon="home" />
+        </router-link>
+        <b-dropdown v-if="isGpxLoadingSupported" aria-role="list" class="has-text-black" >
           <button class="button is-small is-text has-background-black-bis has-text-primary has-pointer-events" slot="trigger">
               <b-icon icon="align-justify" />
           </button>
@@ -13,6 +16,7 @@
         </b-dropdown>
       </div>
     </div>
+
     <b-notification v-for="m in messages" v-bind:key="m" type="is-danger" role="alert">
       {{ m }}
     </b-notification>
@@ -30,7 +34,7 @@
 
         <b-tab-item label="Meta" class="is-pulled-left" >
           <div class="has-text-weight-bold">
-            {{ displayable.dayOfWeek(track.startTime) }},
+            {{ displayable.dayOfWeek(track.startTime, track.timezoneInfo) }},
             {{ displayable.longDate(track.startTime) }}
             <span class="has-text-weight-light">
               ({{ track.path }})
@@ -167,6 +171,7 @@ export default class Map extends Vue {
   private track: SearchTrack = emptySearchTrack
   private allRuns: GpsRun[] = []
   private stops: GpsStop[] = []
+  private defaultInfoText = ''
   private selectedPath?: L.Path
   private selectedOptions = {}
   private selectedInfoText = ''
@@ -258,6 +263,12 @@ export default class Map extends Vue {
             this.allRuns.push(run)
           }
         }
+
+        this.defaultInfoText = `${displayable.dayOfWeek(gps.startTime, gps.timezoneInfo)}, `
+          + `${displayable.date(gps.startTime, gps.timezoneInfo)}; `
+          + `${displayable.distanceKilometers(gps.distanceKilometers)}, `
+          + `${displayable.durationSeconds(gps.durationSeconds)}`
+        this.setSelectedMessage(this.defaultInfoText)
 
         this.addRuns(this.allRuns, 'Runs', true, this.runSelectionOptions)
         this.addRuns(gps.removedRuns, 'Bad runs', false, this.badRunOptions)
@@ -399,7 +410,11 @@ export default class Map extends Vue {
   }
 
   private setSelectedMessage(message: string) {
-    this.selectedInfoText = message
+    if (!message || message === '') {
+      this.selectedInfoText = this.defaultInfoText
+    } else {
+      this.selectedInfoText = message
+    }
   }
 
   private selectPoint(point: GpsPoint) {
@@ -652,6 +667,11 @@ a:link {
 .map-content {
   flex: 1 1 auto;
   height: 100%;
+}
+
+.home-button {
+  padding: 6px 3px 6px 3px;
+  margin: 10px 5px 10px 3px;
 }
 
 .info-content {

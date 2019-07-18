@@ -7,13 +7,14 @@
 <script lang="ts">
 import { Component, Inject, Provide, Vue } from 'vue-property-decorator'
 
-// import { SearchService } from '@/services/SearchService'
+import { SearchService } from '@/services/SearchService'
 import { StaticService } from '@/services/StaticService'
 import { TrackMasterServer } from '@/services/TrackMasterServer'
 
 @Component
 export default class App extends Vue {
-  @Provide('trackMaster') private trackMaster: TrackMasterServer = new StaticService()
+  @Provide('trackMaster') private trackMaster: TrackMasterServer =
+    process.env.VUE_APP_IS_STATIC === 'true' ? new StaticService() : new SearchService()
 }
 </script>
 
