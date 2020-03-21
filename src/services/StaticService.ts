@@ -4,14 +4,13 @@ import { TrackMasterServer } from '@/services/TrackMasterServer'
 
 export class StaticService implements TrackMasterServer {
     public list(first: number, count: number): Promise<SearchResults> {
-        // TODO: Handle paging
         const url = 'data/list.json'
         return new Promise((resolve, reject) => {
             axios.get(url)
             .then((response) => {
                 const searchResults = response.data as SearchResults
                 searchResults.matches = searchResults.matches.slice(first, first + count)
-              resolve(searchResults)
+                resolve(searchResults)
             }, (err) => {
               reject(this.getErrorMessage(err))
             })

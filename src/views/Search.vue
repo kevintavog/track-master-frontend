@@ -29,29 +29,30 @@
       :data="searchResults.matches"
       :opened-detailed="openedDetails"
       :show-detail-icon="true"
+      :sticky-header="true"
       detailed
       detail-key="id">
       <template slot-scope="props">
 
-        <b-table-column field="start" label="Date" centered>
-          <span >
-            {{ displayable.date(props.row.startTime, props.row.timezoneInfo) }}
-            {{ displayable.dayOfWeek(props.row.startTime, props.row.timezoneInfo) }}
+        <b-table-column field="start" label="Date" centered @click.stop="toggleDetails">
+          <span class="has-text-weight-semibold	" >
+            {{ displayable.dayOfWeek(props.row.startTime, props.row.timezoneInfo.id) }},
+            {{ displayable.date(props.row.startTime, props.row.timezoneInfo.id) }}
           </span>
         </b-table-column>
 
         <b-table-column field="start" label="Time" centered>
-          <span>
-            {{ displayable.shortTime(props.row.startTime, props.row.timezoneInfo) }} -
-            {{ displayable.shortTime(props.row.endTime, props.row.timezoneInfo) }}
+          <span >
+            {{ displayable.shortTime(props.row.startTime, props.row.timezoneInfo.id) }} -
+            {{ displayable.shortTime(props.row.endTime, props.row.timezoneInfo.id) }}
           </span>
         </b-table-column>
 
         <b-table-column field="duration" label="Duration">
-          {{ displayable.distance(props.row) }}, {{ displayable.duration(props.row) }}
+          {{ displayable.trackDistance(props.row) }}, {{ displayable.duration(props.row) }}
         </b-table-column>
 
-        <b-table-column field="countryNames" label="Countries">
+        <b-table-column field="countryNames" label="Countries" @click.stop="showMap">
           {{ displayable.firstFew(props.row.countryNames) }}
         </b-table-column>
 
@@ -63,7 +64,7 @@
           {{ displayable.firstFew(props.row.siteNames) }}
         </b-table-column>
 
-        <b-table-column field="siteNames" label="">
+        <b-table-column field="map" label="">
           <router-link :to="{ path: 'map', query: {id: props.row.id} }">
             <b-icon icon="map" size="is-medium"/>
           </router-link>
@@ -73,14 +74,15 @@
 
       <template slot="detail" slot-scope="props">
         <div>
-          From {{ displayable.time(props.row.startTime, props.row.timezoneInfo) }}
-          to {{ displayable.time(props.row.endTime, props.row.timezoneInfo) }} ( {{props.row.timezoneInfo.tag}} )
+          From {{ displayable.time(props.row.startTime, props.row.timezoneInfo.id) }}
+          to {{ displayable.time(props.row.endTime, props.row.timezoneInfo.id) }} 
+          ( {{ displayable.shortTimezoneName(props.row.timezoneInfo.id) }} )
         </div>
         <div>
           Path: {{ props.row.path }}
         </div>
         <div>
-          Distance: {{ displayable.distance(props.row) }}
+          Distance: {{ displayable.trackDistance(props.row) }}
         </div>
         <div>
           Duration: {{ displayable.duration(props.row)  }} 
@@ -159,6 +161,14 @@ export default class Search extends Vue {
       .catch((err) => {
         this.messages.push(`Search failed: ` + err)
       })
+  }
+
+  private toggleDetails() {
+console.log(`toggle`)
+  }
+
+  private showmap() {
+console.log(`show map`)
   }
 
   @Watch('currentPage')

@@ -3,8 +3,8 @@ import { SearchResults, SearchTrack, TrackManagerErrorResponse } from '@/models/
 import { TrackMasterServer } from '@/services/TrackMasterServer'
 
 export class SearchService implements TrackMasterServer {
-  // private static baseServerUrl = process.env.NODE_ENV === 'production' ? 'http://jupiter/findaphoto/' : '/'
-  private static baseServerUrl = process.env.NODE_ENV !== 'production' ? 'http://localhost:8080/' : '/'
+  // private static baseServerUrl = process.env.NODE_ENV === 'production' ? 'http://jupiter/trackmaster/' : '/'
+  private static baseServerUrl = process.env.NODE_ENV !== 'production' ? 'http://localhost:7800/' : '/'
 
   public list(first: number, count: number): Promise<SearchResults> {
     const url = SearchService.baseServerUrl + 'api/tracks?'

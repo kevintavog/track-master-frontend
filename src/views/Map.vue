@@ -20,6 +20,7 @@
     <b-notification v-for="m in messages" v-bind:key="m" type="is-danger" role="alert">
       {{ m }}
     </b-notification>
+
     <div class="is-pulled-left is-size-5 pointer-cursor" aria-controls="info-content-id" @click="infoVisible = !infoVisible">
       <p class="is-pulled-left has-text-white">Info</p>
       <a class="is-pulled-left left-padding">
@@ -34,24 +35,24 @@
 
         <b-tab-item label="Meta" class="is-pulled-left" >
           <div class="has-text-weight-bold">
-            {{ displayable.dayOfWeek(track.startTime, track.timezoneInfo) }},
-            {{ displayable.longDate(track.startTime) }}
+            {{ displayable.dayOfWeek(track.startTime, track.timezoneInfo.id) }},
+            {{ displayable.longDate(track.startTime, track.timezoneInfo.id) }}
             <span class="has-text-weight-light">
               ({{ track.path }})
             </span>
             <br>
-            {{ displayable.time(track.startTime, track.timezoneInfo) }}
-            to {{ displayable.time(track.endTime, track.timezoneInfo) }} ({{track.timezoneInfo.tag}})
+            {{ displayable.time(track.startTime, track.timezoneInfo.id) }}
+            to {{ displayable.time(track.endTime, track.timezoneInfo.id) }} ({{track.timezoneInfo.tag}})
           </div>
           <div>
-            Distance: <span class="has-text-weight-semibold"> {{ displayable.distanceKilometers(track.distanceKilometers) }} </span>
+            Distance: <span class="has-text-weight-semibold"> {{ displayable.distance(track.kilometers) }} </span>
           </div>
           <div>
-            Duration total: <span class="has-text-weight-semibold"> {{ displayable.durationSeconds(track.durationSeconds) }} </span>,
+            Duration total: <span class="has-text-weight-semibold"> {{ displayable.durationSeconds(track.seconds) }} </span>,
               moving: <span class="has-text-weight-semibold"> {{ displayable.durationSeconds(track.movingSeconds) }} </span>
           </div>
           <div>
-            Speed: <span class="has-text-weight-semibold"> {{ displayable.speed(track.movingSeconds, track.distanceKilometers) }} </span>
+            Speed: <span class="has-text-weight-semibold"> {{ displayable.speed(track.movingSeconds, track.kilometers) }} </span>
           </div>
           <div>
             Sites: {{displayable.join(track.siteNames)}}
@@ -71,17 +72,16 @@
           <apexchart height="200" type="line" :options="speedOptions" :series="speedSeries"></apexchart>
         </b-tab-item> -->
 
-        <b-tab-item label="Runs">
-          <b-table :data="allRuns" :selected.sync="selectedRun">
+        <b-tab-item label="Segments">
+          <b-table :data="allSegments" :selected.sync="selectedSegment">
             <template slot-scope="props">
               <b-table-column field="${index}" label="Index" centered>
                 {{ props.index + 1 }}
               </b-table-column>
               <b-table-column field="startTime" label="Time" centered>
                 <span >
-                  {{ displayable.date(props.row.points[0].time, props.row.timezoneInfo) }}, 
-                  {{ displayable.time(props.row.points[0].time, track.timezoneInfo) }} - 
-                  {{ displayable.time(props.row.points[props.row.points.length - 1].time, track.timezoneInfo) }}
+                  {{ displayable.time(props.row.points[0].timestamp, track.timezoneInfo.id) }} - 
+                  {{ displayable.time(props.row.points[props.row.points.length - 1].timestamp, track.timezoneInfo.id) }}
                 </span>
               </b-table-column>
               <b-table-column field="speed" label="Speed" centered>
@@ -96,12 +96,12 @@
               </b-table-column>
               <b-table-column field="distance" label="Distance" centered>
                 <span >
-                  {{ displayable.distanceKilometers(props.row.kilometers) }}
+                  {{ displayable.distance(props.row.kilometers) }}
                 </span>
               </b-table-column>
               <b-table-column field="transportation" label="Transportation" centered>
-                <span >
-                  {{ props.row.transportationTypes.filter(i => i.probability >= 0.33).map(i => i.mode).join(', ')  }}
+                <span v-if="props.row.rangic">
+                  {{ props.row.rangic.transportationTypes.filter(i => i.probability >= 0.33).map(i => i.mode).join(', ')  }}
                 </span>
               </b-table-column>
             </template>
@@ -110,27 +110,24 @@
         </b-tab-item>
 
         <b-tab-item label="Stops">
-          <b-table :data="stops" :selected.sync="selectedStop">
+          <b-table :data="waypoints" :selected.sync="selectedWaypoint">
             <template slot-scope="props">
               <b-table-column field="${index}" label="Index" centered>
                 {{ props.index + 1 }}
               </b-table-column>
-              <b-table-column field="start" label="Start" centered>
+              <b-table-column field="time" label="Time" centered>
                 <span >
-                  {{ displayable.time(props.row.startTime, track.timezoneInfo) }}
+                  {{ displayable.time(props.row.timestamp, track.timezoneInfo.id) }}
                 </span> -
                 <span >
-                  {{ displayable.time(props.row.endTime, track.timezoneInfo) }}
+                  {{ displayable.time(
+                    props.row.rangic ? props.row.rangic.finishTime : props.row.timestamp,
+                    track.timezoneInfo.id) }}
                 </span>
               </b-table-column>
               <b-table-column field="duration" label="Duration" centered>
                 <span >
                   {{ displayable.durationSeconds(props.row.seconds) }}
-                </span>
-              </b-table-column>
-              <b-table-column field="count" label="# Points" centered>
-                <span >
-                  {{ props.row.countPoints }}
                 </span>
               </b-table-column>
             </template>
@@ -146,9 +143,8 @@
 <script lang="ts">
 import { Component, Inject, Vue, Watch } from 'vue-property-decorator'
 import L from 'leaflet'
-import { GpxParser, GpxSegment, GpxPoint } from '@/models/Gpx'
+import { Gpx, GpxBounds, GpxParser, GpxSegment, GpxPoint, GpxWaypoint } from '@/models/Gpx'
 import { Geo } from '@/utils/Geo'
-import { emptyGpsPoint, Gps, GpsBounds, GpsPoint, GpsRun, GpsStop, GpsTrack } from '@/models/Gps'
 import { TrackMasterServer } from '@/services/TrackMasterServer'
 import { emptySearchTrack, SearchTrack } from '@/models/SearchResults'
 import { GpxFeatureGroup } from '@/utils/GpxFeatureGroup.ts'
@@ -163,14 +159,14 @@ interface StringMapPath {
 export default class Map extends Vue {
   @Inject('trackMaster') private trackMaster!: TrackMasterServer
   private isGpxLoadingSupported = process.env.NODE_ENV !== 'production'
-  private showStopBoundingBoxes = process.env.NODE_ENV !== 'production'
+  // private showStopBoundingBoxes = process.env.NODE_ENV !== 'production'
   private displayable = displayable
   private messages: string[] = []
   private map?: L.Map
   private mapLayersControl: L.Control.Layers | null = null
   private track: SearchTrack = emptySearchTrack
-  private allRuns: GpsRun[] = []
-  private stops: GpsStop[] = []
+  private allSegments: GpxSegment[] = []
+  private waypoints: GpxWaypoint[] = []
   private defaultInfoText = ''
   private selectedPath?: L.Path
   private selectedOptions = {}
@@ -178,57 +174,17 @@ export default class Map extends Vue {
   private selectedPoint?: L.Circle
   private infoVisible = false
   private activeInfoTab = 0
-  private selectedRun = Object()
-  private selectedStop = Object()
+  private selectedSegment = Object()
+  private selectedWaypoint = Object()
   private skipFitBounds = false
-  private stopPolyMap: StringMapPath = { }
-  private stopSelectionOptions = {
+  private waypointPolyMap: StringMapPath = { }
+  private waypointSelectionOptions = {
     radius: 8, weight: 6, color: 'red', opacity: 0.8, fillColor: 'red', fillOpacity: 0.4 }
-  private shortStopSelctionOptions = {
+  private shortWaypointSelectionOptions = {
     radius: 5, weight: 3, color: '#990000', opacity: 0.5, fillColor: 'orange', fillOpacity: 0.9 }
-  private runPolyMap: StringMapPath = { }
-  private runSelectionOptions = { color: '#0000FF', weight: 5, dashArray: '', opacity: 0.6 }
-  private badRunOptions = { color: '#003300', weight: 6, dashArray: '20 20', opacity: 0.7 }
+  private segmentPolyMap: StringMapPath = { }
+  private segmentSelectionOptions = { color: '#0000FF', weight: 5, dashArray: '', opacity: 0.6 }
   private originalGpxLoaded = false
-  private speedSeries = [{
-    name: 'Speed',
-    data: [{ x: '1', y: 3.1 }],
-  }]
-  private speedOptions = {
-    chart: {
-      toolbar: {
-        show: false,
-      },
-      // events: {
-      //   click: this.chartClick,
-      // },
-    },
-    grid: {
-      strokeDashArray: 7,
-    },
-    legend: {
-     show: false,
-    },
-    tooltip: {
-      theme: 'dark',
-      x: {
-        formatter: this.formatXTooltip,
-      },
-      y: {
-        formatter: (value: number) => `${Math.round(10 * value) / 10} km/h`,
-      },
-    },
-    xaxis: {
-      labels: {
-        show: false,
-      },
-    },
-    yaxis: {
-      labels: {
-        show: false,
-      },
-    },
-  }
 
   private mounted() {
     this.initializeMap()
@@ -243,131 +199,117 @@ export default class Map extends Vue {
   }
 
   private formatXTooltip(value: string): string {
-    return this.displayable.time(value, this.track.timezoneInfo)
+    return this.displayable.time(value, this.track.timezoneInfo.id)
   }
 
   private loadTrack(id: string) {
-    this.speedSeries[0].data = []
-    this.allRuns = []
+    this.allSegments = []
     this.trackMaster.loadTrack(id)
-      .then((results) => {
-        // This is silly - `results` is supposed to be a string already, but isn't.
-        const gps = (results as unknown) as Gps
-        this.map!.fitBounds([
-          [gps.bounds.min.lat, gps.bounds.min.lon],
-          [gps.bounds.max.lat, gps.bounds.max.lon]],
-          undefined)
+      .then((results: string) => {
+        new GpxParser().parse(id, results)
+          .then((gpx) => {
+            this.fitBounds(gpx.bounds, true)
 
-        for (const track of gps.tracks) {
-          for (const run of track.runs) {
-            this.allRuns.push(run)
-          }
-        }
+            for (const track of gpx.tracks) {
+              for (const segment of track.segments) {
+                this.allSegments.push(segment)
+              }
+            }
 
-        this.defaultInfoText = `${displayable.dayOfWeek(gps.startTime, gps.timezoneInfo)}, `
-          + `${displayable.date(gps.startTime, gps.timezoneInfo)}; `
-          + `${displayable.distanceKilometers(gps.distanceKilometers)}, `
-          + `${displayable.durationSeconds(gps.durationSeconds)}`
-        this.setSelectedMessage(this.defaultInfoText)
+            this.defaultInfoText = `${displayable.dayOfWeek(gpx.startDate, gpx.timezoneName)}, `
+              + `${displayable.date(gpx.startDate, gpx.timezoneName)}; `
+              + `${displayable.distance(gpx.kilometers)}, `
+              + `${displayable.durationSeconds(gpx.seconds)}`
+            this.setSelectedMessage(this.defaultInfoText)
 
-        this.addRuns(this.allRuns, 'Runs', true, this.runSelectionOptions)
-        this.addRuns(gps.removedRuns, 'Bad runs', false, this.badRunOptions)
-        this.addStops(gps)
+            this.addSegments(this.allSegments, 'Segments', true, this.segmentSelectionOptions)
+            this.addWaypoints(gpx)
+          })
+          .catch((err) => { this.messages.push(`Failed adding analyed track to map: ` + err) })
       })
       .catch((err) => { this.messages.push(`Failed retrieving analyzed track: ` + err) })
   }
 
-  private fitBounds(bounds: GpsBounds) {
-    const zoom = this.map!.getZoom()
-    this.map!.fitBounds([
-        [bounds.min.lat, bounds.min.lon],
-        [bounds.max.lat, bounds.max.lon],
-      ],
-      { maxZoom: zoom, padding: [5, 5] })
+  private fitBounds(bounds: GpxBounds, changeZoom: boolean = false) {
+    const mapBounds = [
+        [bounds.minLat, bounds.minLon],
+        [bounds.maxLat, bounds.maxLon],
+      ] as L.LatLngBoundsExpression
+    if (changeZoom) {
+      this.map!.fitBounds(mapBounds, undefined)
+    } else {
+      const zoom = this.map!.getZoom()
+      this.map!.fitBounds(mapBounds, { maxZoom: zoom, padding: [5, 5] })
+    }
   }
 
-  private addStops(gps: Gps) {
-    if (!gps.stops) {
-      this.stops = []
+  private addWaypoints(gpx: Gpx) {
+    if (!gpx.waypoints) {
+      this.waypoints = []
       return
     }
 
-    this.stops = gps.stops
+    this.waypoints = gpx.waypoints
     let index = 1
-    const stops = gps.stops.map((s) => {
-      const options = this.stopOptions(s)
-      const l = new L.Circle([
-        s.bounds.min.lat + ((s.bounds.max.lat - s.bounds.min.lat) / 2),
-        s.bounds.min.lon + ((s.bounds.max.lon - s.bounds.min.lon) / 2),
-      ], options)
+    const wpPoly = gpx.waypoints.map((w) => {
+      const options = this.waypointOptions(w)
+      const l = new L.Circle([w.latitude, w.longitude], options)
       const stopIndex = index
       l.on('click', (e) => {
-        this.setSelection(e, l, options, this.stopSelectionMessage(index, s))
+        this.setSelection(e, l, options, this.waypointSelectionMessage(index, w))
         this.skipFitBounds = true
-        this.selectedStop = s
+        this.selectedWaypoint = w
       })
       index += 1
-      this.stopPolyMap[s.startTime.toString()] = l
+      this.waypointPolyMap[w.timestamp.toISO()] = l
       return l
     })
-    let stopLayer = new GpxFeatureGroup(stops)
-    stopLayer.addTo(this.map as L.Map)
-    this.addToMapLayersControl(stopLayer, `Stops`)
-
-    if  (this.showStopBoundingBoxes) {
-      const stopOutlines = gps.stops.map((s) => {
-        const l = new L.Rectangle([
-          [s.bounds.min.lat, s.bounds.min.lon],
-          [s.bounds.max.lat, s.bounds.max.lon],
-        ],
-        { color: '#002200', fill: false})
-        return l
-      })
-      stopLayer = new GpxFeatureGroup(stopOutlines)
-      stopLayer.addTo(this.map as L.Map)
-    }
+    const waypointLayer = new GpxFeatureGroup(wpPoly)
+    waypointLayer.addTo(this.map as L.Map)
+    this.addToMapLayersControl(waypointLayer, `Waypoints`)
   }
 
-  private addRuns(runs: GpsRun[], label: string, addToMap: boolean, options: object) {
+  private addSegments(segments: GpxSegment[], label: string, addToMap: boolean, options: object) {
     let index = 1
-    const runLines = runs.map((r) => {
-        const runIndex = index
-        const runLatLngList = r.points.map( (p) => {
-          this.speedSeries[0].data.push({ x: p.time, y: p.calculatedSpeedKmHFromPrevious })
+    const segmentLines = segments.map( (s) => {
+        const segmentIndex = index
+        const segmentLatLngList = s.points.map( (p) => {
           return new L.LatLng(p.latitude, p.longitude)
         })
 
-        const line = new L.Polyline(runLatLngList, options)
+        const line = new L.Polyline(segmentLatLngList, options)
         line.on('click', (e) => {
-          const message = this.runSelectionMessage(runIndex, r)
+          const message = this.segmentSelectionMessage(segmentIndex, s)
           this.setSelection(e, line, options, message)
           this.skipFitBounds = true
-          this.selectedRun = r
+          this.selectedSegment = s
 
           const me = e as L.LeafletMouseEvent
-          const closestPoint = Geo.closestPoint(r.points, me.latlng.lat, me.latlng.lng)
-          const m = `; [ ${this.time(closestPoint.time)}, ` +
-            `${this.displayable.speedKmh(closestPoint.movingAverageKmH)} ]`
+          const closestPoint = Geo.closestPoint(s.points, me.latlng.lat, me.latlng.lng)
+          const m = `; [ ${this.time(closestPoint.timestamp)}, ` +
+            `${this.displayable.speedFromKmh(
+              closestPoint.rangic?.calculatedSpeedKmh ?? closestPoint.calculatedSpeedKmh)} ]`
           this.setSelectedMessage(message + m)
           this.selectPoint(closestPoint)
         })
         index += 1
-        this.runPolyMap[r.points[0].time] = line
+        this.segmentPolyMap[s.points[0].timestamp.toISO()] = line
         return line
     })
 
-    const arrowOptions: L.PolylineOptions = Object.assign({}, options)
-    arrowOptions.color = '#330066'
-    arrowOptions.weight = 5
-    const arrowPoints = runs.flatMap( (r) => this.getArrowPoints(r)).filter( (a) => !!a )
-    const arrowLines = arrowPoints.map( (pt) => {
-      return this.createArrowLine(pt.latitude, pt.longitude, pt.calculatedCourseFromPrevious, arrowOptions)
-    })
-    const runLayer = new GpxFeatureGroup(runLines.concat(arrowLines))
+    // const arrowOptions: L.PolylineOptions = Object.assign({}, options)
+    // arrowOptions.color = '#330066'
+    // arrowOptions.weight = 5
+    // const arrowPoints = segments.flatMap( (s) => this.getArrowPoints(s)).filter( (a) => !!a )
+    // const arrowLines = arrowPoints.map( (pt) => {
+    //   return this.createArrowLine(pt.latitude, pt.longitude, pt.calculatedCourseFromPrevious, arrowOptions)
+    // })
+    // const segmentLayer = new GpxFeatureGroup(segmentLines.concat(arrowLines))
+    const segmentLayer = new GpxFeatureGroup(segmentLines)
     if (addToMap) {
-      runLayer.addTo(this.map!)
+      segmentLayer.addTo(this.map!)
     }
-    this.addToMapLayersControl(runLayer, label)
+    this.addToMapLayersControl(segmentLayer, label)
   }
 
   private createArrowLine(lat: number, lon: number, headingDegrees: number, options: object): L.Polyline {
@@ -381,18 +323,18 @@ export default class Map extends Vue {
     options)
   }
 
-  private getArrowPoints(run: GpsRun): GpsPoint[] {
-    const len = run.points.length
+  private getArrowPoints(segment: GpxSegment): GpxPoint[] {
+    const len = segment.points.length
     if (len < 7 * 60) {
-      return [run.points[Math.floor(len / 2)]]
+      return [segment.points[Math.floor(len / 2)]]
     }
     if (len < 15 * 60) {
-      return [run.points[Math.floor(len / 3)], run.points[Math.floor(len * 2 / 3)]]
+      return [segment.points[Math.floor(len / 3)], segment.points[Math.floor(len * 2 / 3)]]
     }
 
-    let prevPoint = run.points[10]
-    return run.points.filter( (p) => {
-      if ((DateTime.fromISO(p.time).toSeconds() - DateTime.fromISO(prevPoint.time).toSeconds()) > 300) {
+    let prevPoint = segment.points[10]
+    return segment.points.filter( (p) => {
+      if ((p.timestamp.toSeconds() - prevPoint.timestamp.toSeconds()) > 300) {
         prevPoint = p
         return true
       }
@@ -417,7 +359,7 @@ export default class Map extends Vue {
     }
   }
 
-  private selectPoint(point: GpsPoint) {
+  private selectPoint(point: GpxPoint) {
     if (this.selectedPoint) {
       this.selectedPoint
         .setLatLng([point.latitude, point.longitude])
@@ -460,54 +402,62 @@ export default class Map extends Vue {
     }
   }
 
-  private stopSelectionMessage(index: number, stop: GpsStop): string {
-    return `Stop #${index}: ${this.time(stop.startTime.toString())} - ` +
-      `${this.time(stop.endTime.toString())}, ` +
-      `(${this.displayable.durationSeconds(stop.seconds)}), ` +
-      `${stop.countPoints} points`
+  private waypointSelectionMessage(index: number, waypoint: GpxWaypoint): string {
+    const day = this.displayable.dayOfWeek(waypoint.timestamp, this.track.timezoneInfo.id)
+    const year = this.displayable.date(waypoint.timestamp, this.track.timezoneInfo.id)
+    return `Waypoint #${index}: ${day}, ${year} - ${this.time(waypoint.timestamp)} - ` +
+      `${this.time(waypoint.rangic?.finishTime ?? waypoint.timestamp)}, ` +
+      `(${this.displayable.durationSeconds(waypoint.rangic?.seconds ?? 0)})`
   }
 
-  private runSelectionMessage(index: number, run: GpsRun): string {
-    return `Run #${index}: ${this.time(run.points[0].time)}, ` +
-      `${displayable.distanceKilometers(run.kilometers)}, ` +
-      `${this.displayable.durationSeconds(run.seconds)}, ` +
-      `${this.displayable.speed(run.seconds, run.kilometers)}, ` +
-      `${run.points.length} pts`
+  private segmentSelectionMessage(index: number, segment: GpxSegment): string {
+    const timestamp = segment.points[0].timestamp
+    const day = this.displayable.dayOfWeek(timestamp, this.track.timezoneInfo.id)
+    const year = this.displayable.date(timestamp, this.track.timezoneInfo.id)
+    return `Segment #${index}: ` +
+      `${day}, ${year} - ` +
+      `${this.time(segment.points[0].timestamp)}, ` +
+      `${displayable.distance(segment.rangic?.kilometers ?? 0)}, ` +
+      `${this.displayable.durationSeconds(segment.seconds)}, ` +
+      `${this.displayable.speed(segment.seconds, segment.rangic?.kilometers ?? 0)}`
   }
 
-  private stopOptions(stop: GpsStop) {
-    return stop.seconds >= 2 * 60 ? this.stopSelectionOptions : this.shortStopSelctionOptions
+  private waypointOptions(waypoint: GpxWaypoint) {
+    const seconds = waypoint.rangic?.seconds ?? 0
+    return seconds >= 2 * 60 ? this.waypointSelectionOptions : this.shortWaypointSelectionOptions
   }
 
-  @Watch('selectedStop')
-  private onStopSelectionChanged(to: any, from: any) {
-    const stop = this.selectedStop as GpsStop
+  @Watch('selectedWaypoint')
+  private onWaypointSelectionChanged(to: any, from: any) {
+    const waypoint = this.selectedWaypoint as GpxWaypoint
     let index = 0
-    for (const s of this.stops) {
+    for (const s of this.waypoints) {
       index += 1
-      if (s.startTime === stop.startTime) { break }
+      if (s.timestamp === waypoint.timestamp) { break }
     }
-    const path = this.stopPolyMap[stop.startTime.toString()]
-    this.setSelection(null, path, this.stopOptions(stop), this.stopSelectionMessage(index, stop))
+    const path = this.waypointPolyMap[waypoint.timestamp.toISO()]
+    this.setSelection(null, path, this.waypointOptions(waypoint), this.waypointSelectionMessage(index, waypoint))
     if (!this.skipFitBounds) {
-      this.fitBounds(stop.bounds)
+      if (waypoint.rangic) {
+        this.fitBounds(waypoint.rangic!.bounds, false)
+      }
     }
     this.skipFitBounds = false
   }
 
-  @Watch('selectedRun')
-  private onRunSelectionChanged(to: any, from: any) {
-    const run = this.selectedRun as GpsRun
+  @Watch('selectedSegment')
+  private onSegmentSelectionChanged(to: any, from: any) {
+    const segment = this.selectedSegment as GpxSegment
     let index = 0
-    for (const r of this.allRuns) {
+    for (const r of this.allSegments) {
       index += 1
-      if (r.points[0].time === run.points[0].time) { break }
+      if (r.points[0].timestamp === segment.points[0].timestamp) { break }
     }
-    const line = this.runPolyMap[run.points[0].time]
-    this.setSelection(null, line, this.runSelectionOptions, this.runSelectionMessage(index, run))
+    const line = this.segmentPolyMap[segment.points[0].timestamp.toISO()]
+    this.setSelection(null, line, this.segmentSelectionOptions, this.segmentSelectionMessage(index, segment))
 
-    if (!this.skipFitBounds) {
-      this.fitBounds(run.bounds)
+    if (!this.skipFitBounds && segment.rangic) {
+      this.fitBounds(segment.rangic!.bounds)
     }
     this.skipFitBounds = false
   }
@@ -525,11 +475,12 @@ export default class Map extends Vue {
     L.control.zoom({ position: 'topright' }).addTo(this.map)
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
+        maxNativeZoom: 19,
+        maxZoom: 22,
         attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
     }).addTo(this.map)
 
-    L.control.scale({ position: 'bottomright' }).addTo(this.map)
+    L.control.scale({ position: 'bottomright', maxWidth: 300 }).addTo(this.map)
 
     this.map.on('click', (e) => {
       const me = e as any
@@ -539,8 +490,8 @@ export default class Map extends Vue {
 
   }
 
-  private time(time: string): string {
-    return this.displayable.time(time, this.track.timezoneInfo)
+  private time(time: DateTime): string {
+    return this.displayable.time(time, this.track.timezoneInfo.id)
   }
 
   private loadOriginalGpx() {
@@ -551,15 +502,11 @@ export default class Map extends Vue {
     this.setSelectedMessage(`Loading original GPX...`)
     this.trackMaster.loadOriginalTrack(this.track.id)
       .then((results) => {
-        new GpxParser().parse(results)
-          .then((gpxFile) => {
+        new GpxParser().parse(this.track.id, results)
+          .then((gpx) => {
             this.originalGpxLoaded = true
-            let trackNumber = 1
-            for (const track of gpxFile.tracks) {
-              for (const segment of track.segments) {
-                this.addGpxSegment(segment, trackNumber)
-                trackNumber += 1
-              }
+            for (const track of gpx.tracks) {
+              this.addGpxSegments(track.segments)
             }
           })
           .catch((err) => {
@@ -575,38 +522,20 @@ export default class Map extends Vue {
       })
   }
 
-  private addGpxSegment(segment: GpxSegment, trackNumber: number) {
-    const runLatLngList = segment.points.map( (p) => {
-      return new L.LatLng(p.latitude, p.longitude)
-    })
-    const runLine = new L.Polyline(
-      runLatLngList,
-      { color: '#00FF00', weight: 3, dashArray: '', opacity: 1.0 })
+  private addGpxSegments(segments: GpxSegment[]) {
+    const options = { color: '#FF00FF', weight: 5, dashArray: '', opacity: 1.0 }
+    const segmentLines = segments.map( (s) => {
+        const segmentLatLngList = s.points.map( (p) => {
+          return new L.LatLng(p.latitude, p.longitude)
+        })
 
-    const runPoints = []
-    for (let idx = 0; idx < segment.points.length; ++idx) {
-      const p = segment.points[idx]
-      const options = { radius: 1, weight: 1, color: '#009900', fillColor: '#007700', fillOpacity: 0.5 }
-      const circle = new L.Circle(new L.LatLng(p.latitude, p.longitude), options)
-      circle.on('click', (e) => {
-        const time = displayable.time(p.timestamp.toISOString(), this.track.timezoneInfo)
-        let message = `#${idx + 1}: ${time}`
-        if (idx > 0) {
-          const prev = segment.points[idx - 1]
-          const distanceMeters = Geo.distanceGpx(prev, p)
-          const meters = displayable.distanceMeters(distanceMeters)
-          const seconds = (p.timestamp.getTime() - prev.timestamp.getTime()) / 1000
-          const speed = displayable.speed(seconds, distanceMeters / 1000)
-          message += `; ${meters}; ${speed}`
-        }
-        // this.setSelectedMessage(message)
-        this.setSelection(e, circle, options, message)
-      })
-      runPoints.push(circle)
-    }
-    const runLayer = new GpxFeatureGroup([runLine, ...runPoints])
-    runLayer.addTo(this.map as L.Map)
-    this.addToMapLayersControl(runLayer, `GPX #${trackNumber}`)
+        const line = new L.Polyline(segmentLatLngList, options)
+        return line
+    })
+
+    const segmentLayer = new GpxFeatureGroup(segmentLines)
+    segmentLayer.addTo(this.map as L.Map)
+    this.addToMapLayersControl(segmentLayer, `Original`)
   }
 }
 

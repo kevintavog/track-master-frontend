@@ -20,11 +20,6 @@ export class Geo {
   }
 
   // Returns the distance in meters
-  public static distanceGps(start: GpsPoint, end: GpsPoint) {
-    return this.distanceLL(start.latitude, start.longitude, end.latitude, end.longitude)
-  }
-
-  // Returns the distance in meters
   public static distanceGpx(start: GpxPoint, end: GpxPoint) {
     return this.distanceLL(start.latitude, start.longitude, end.latitude, end.longitude)
   }
@@ -51,7 +46,7 @@ export class Geo {
     return n * 180 / Math.PI
   }
 
-  public static closestPoint(points: GpsPoint[], lat: number, lon: number): GpsPoint {
+  public static closestPoint(points: GpxPoint[], lat: number, lon: number): GpxPoint {
     let closestPoint = points[0]
     let closest = this.distanceLL(points[0].latitude, points[0].longitude, lat, lon)
     points.forEach( (p) => {
@@ -77,5 +72,18 @@ export class Geo {
     const x = Math.cos(angularDistance) - Math.sin(latRadians) * sinNewLat
     const newLon = lonRadians + Math.atan2(y, x)
     return { lat: this.toDegrees(newLat), lon: this.toDegrees(newLon) }
+  }
+
+  public static bearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const lat1Radians = Geo.toRad(lat1)
+    const lont1Radians = Geo.toRad(lon1)
+    const lat2Radians = Geo.toRad(lat2)
+    const lon2Radians = Geo.toRad(lon2)
+
+    const y = Math.sin(lon2Radians - lont1Radians) * Math.cos(lat2Radians)
+    const x = Math.cos(lat1Radians) * Math.sin(lat2Radians) -
+      Math.sin(lat1Radians) * Math.cos(lat2Radians) * Math.cos(lon2Radians - lont1Radians)
+    const bearing = Geo.toDegrees(Math.atan2(y, x))
+    return Math.floor((bearing + 360) % 360)
   }
 }

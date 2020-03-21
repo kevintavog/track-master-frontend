@@ -8,8 +8,8 @@ export interface Gps {
     startTime: Date
     endTime: Date
     bounds: GpsBounds
-    distanceKilometers: number
-    durationSeconds: number
+    kilometers: number
+    seconds: number
     movingSeconds: number
 }
 
@@ -36,8 +36,8 @@ export interface GeoPoint {
 export interface GpsTrack {
     runs: GpsRun[]
     bounds: GpsBounds
-    durationSeconds: number
-    distanceKilometers: number
+    seconds: number
+    kilometers: number
 }
 
 export interface GpsRun {
