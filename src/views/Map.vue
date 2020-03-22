@@ -55,7 +55,11 @@
             Speed: <span class="has-text-weight-semibold"> {{ displayable.speed(track.movingSeconds, track.kilometers) }} </span>
           </div>
           <div>
-            Sites: {{displayable.join(track.siteNames)}}
+            Sites:
+            <b-button v-for="b in track.siteNames" v-bind:key="b" rounded type="is-info"
+                class="small-margin" @click="onSiteClicked(b)">
+              {{b}}
+            </b-button>
           </div>
           <div>
             Cities: {{displayable.join(track.cityNames)}}
@@ -67,10 +71,6 @@
             Countries: {{displayable.join(track.countryNames)}}
           </div>
         </b-tab-item>
-
-        <!-- <b-tab-item label="Speed">
-          <apexchart height="200" type="line" :options="speedOptions" :series="speedSeries"></apexchart>
-        </b-tab-item> -->
 
         <b-tab-item label="Segments">
           <b-table :data="allSegments" :selected.sync="selectedSegment">
@@ -146,7 +146,7 @@ import L from 'leaflet'
 import { Gpx, GpxBounds, GpxParser, GpxSegment, GpxPoint, GpxWaypoint } from '@/models/Gpx'
 import { Geo } from '@/utils/Geo'
 import { TrackMasterServer } from '@/services/TrackMasterServer'
-import { emptySearchTrack, SearchTrack } from '@/models/SearchResults'
+import { emptySearchTrack, SearchResultsHelper, SearchTrack } from '@/models/SearchResults'
 import { GpxFeatureGroup } from '@/utils/GpxFeatureGroup.ts'
 import { displayable } from '@/utils/Displayable'
 import { DateTime } from 'luxon'
@@ -168,6 +168,7 @@ export default class Map extends Vue {
   private allSegments: GpxSegment[] = []
   private waypoints: GpxWaypoint[] = []
   private defaultInfoText = ''
+  private sitePopup = L.popup()
   private selectedPath?: L.Path
   private selectedOptions = {}
   private selectedInfoText = ''
@@ -192,14 +193,25 @@ export default class Map extends Vue {
     const props = this.$route.query
     if ('id' in props) {
       this.trackMaster.getTrack(props.id as string)
-        .then((result) => { this.track = result })
+        .then((result) => { this.track = SearchResultsHelper.augment(result) })
         .catch((err) => { this.messages.push(`Failed retrieving track: ` + err) })
       this.loadTrack(props.id as string)
     }
   }
 
-  private formatXTooltip(value: string): string {
-    return this.displayable.time(value, this.track.timezoneInfo.id)
+  private onSiteClicked(name: string) {
+    const p = this.track.sitesToLocation[name]
+    this.showSitePopup(name, p.lat, p.lon)
+  }
+
+  private showSitePopup(name: string, latitude: number, longitude: number) {
+    const wikiUrl = `https://en.wikipedia.org/wiki/Special:Nearby#/coord/${latitude},${longitude}`
+    this.sitePopup.
+      setLatLng(L.latLng(latitude, longitude)).
+      setContent(
+        `<p style="font-size:1.3em;">${name}</p>` +
+        `<a style="color:yellow !important; text-decoration:underline; font-size:1.3em;" href="${wikiUrl}" > Nearby on Wikipedia </a>`)
+      .addTo(this.map!)
   }
 
   private loadTrack(id: string) {
@@ -225,9 +237,16 @@ export default class Map extends Vue {
             this.addSegments(this.allSegments, 'Segments', true, this.segmentSelectionOptions)
             this.addWaypoints(gpx)
           })
-          .catch((err) => { this.messages.push(`Failed adding analyed track to map: ` + err) })
+          .catch((err) => { this.errorMessage(`Failed adding analyzed track to map`, err) })
       })
       .catch((err) => { this.messages.push(`Failed retrieving analyzed track: ` + err) })
+  }
+
+  private errorMessage(message: string, err: Error) {
+    this.messages.push(message + ': ' + err.message)
+    if (err.stack) {
+      this.messages.push(err.stack)
+    }
   }
 
   private fitBounds(bounds: GpxBounds, changeZoom: boolean = false) {
@@ -488,6 +507,11 @@ export default class Map extends Vue {
       this.clearSelection()
     })
 
+    this.map.on('contextmenu', (e) => {
+      const leafletEvent = e as L.LeafletMouseEvent
+      this.showSitePopup('', leafletEvent.latlng.lat, leafletEvent.latlng.lng)
+    })
+
   }
 
   private time(time: DateTime): string {
@@ -579,6 +603,15 @@ a:link {
   pointer-events: auto;
 }
 
+.leaflet-popup-content-wrapper {
+  background-color: #222;
+  color: white;
+}
+
+.leaflet-popup-content-wrapper .leaflet-popup-content {
+  background-color: #222;
+  color: white;
+}
 
 </style>
 
@@ -610,6 +643,11 @@ a:link {
 
 .left-padding {
   padding-left: 1em;
+}
+
+.small-margin {
+  margin-right: 0.6em;
+  margin-bottom: 0.4em;
 }
 
 .pointer-cursor {

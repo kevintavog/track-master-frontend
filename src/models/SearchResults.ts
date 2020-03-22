@@ -1,3 +1,19 @@
+import { GeoPoint } from '@/models/Gps'
+
+export class SearchResultsHelper {
+    public static augment(track: SearchTrack): SearchTrack {
+        const siteToLocation: {[key: string]: GeoPoint} = {}
+        for (const s of track.sites) {
+            for (const n of s.names) {
+                siteToLocation[n] = { lat: s.latitude, lon: s.longitude }
+            }
+        }
+        track.sitesToLocation = siteToLocation
+        track.siteNames = Object.keys(siteToLocation)
+        return track
+    }
+}
+
 export interface SearchResults {
     matches: SearchTrack[]
     totalMatches: number
@@ -9,6 +25,8 @@ export interface SearchTrack {
     countryCodes: string[]
     countryNames: string[]
     stateNames: string[]
+    sites: SearchPlacenameSite[]
+    sitesToLocation: {[key: string]: GeoPoint}
     siteNames: string[]
     path: string
     startTime: string
@@ -17,6 +35,12 @@ export interface SearchTrack {
     kilometers: number
     movingSeconds: number
     seconds: number
+}
+
+export interface SearchPlacenameSite {
+    names: string[]
+    latitude: number
+    longitude: number
 }
 
 export interface SearchTimezoneInfo {
@@ -30,6 +54,8 @@ export const emptySearchTrack: SearchTrack = {
     countryCodes: [],
     countryNames: [],
     stateNames: [],
+    sites: [],
+    sitesToLocation: {},
     siteNames: [],
     path: '',
     startTime: Date(),

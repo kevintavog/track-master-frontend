@@ -2,6 +2,7 @@ import { Geo } from '@/utils/Geo'
 import * as xml2js from 'xml2js'
 import { Timezone } from '@/utils/Timezone'
 import { DateTime } from 'luxon'
+import { GeoPoint } from '@/models/Gps'
 
 /*
 <gpx [many attributes] >
@@ -43,6 +44,14 @@ export interface GpxRangicExtension {
     stateNames: string[]
     cityNames: string[]
     siteNames: string[]
+    sites: GpxRangicPlacenameSite[]
+    siteToLocation: {[key: string]: GeoPoint}
+}
+
+export interface GpxRangicPlacenameSite {
+    names: string[]
+    latitude: number
+    longitude: number
 }
 
 export interface GpxWaypoint {
@@ -199,6 +208,16 @@ export class GpxParser {
 
                 if (result.gpx.extensions && result.gpx.extensions.rangic) {
                     const rangicXml = result.gpx.extensions.rangic
+                    const placenames = this.processPlacenames(rangicXml.sites)
+                    const siteToLocation: {[key: string]: GeoPoint} = {}
+                    const siteNames: string[] = []
+                    for (const p of placenames) {
+                        for (const n of p.names) {
+                            siteToLocation[n] = { lat: p.latitude, lon: p.longitude }
+                            siteNames.push(n)
+                        }
+                    }
+
                     x.rangic = {
                         kilometers: rangicXml.kilometers,
                         seconds: rangicXml.seconds,
@@ -208,7 +227,9 @@ export class GpxParser {
                         countryCodes: rangicXml.countryCodes,
                         stateNames: rangicXml.stateNames,
                         cityNames: rangicXml.cityNames,
-                        siteNames: rangicXml.siteNames,
+                        sites: placenames,
+                        siteNames,
+                        siteToLocation,
                     }
                 }
 
@@ -393,6 +414,20 @@ export class GpxParser {
             }
         }
         return pt
+    }
+
+    private processPlacenames(placenames: any): GpxRangicPlacenameSite[] {
+        const placeList: GpxRangicPlacenameSite[] = []
+        if (placenames.site) {
+            for (const p of placenames.site) {
+                placeList.push({
+                    latitude: p.$.lat,
+                    longitude: p.$.lon,
+                    names: p.name,
+                })
+            }
+        }
+        return placeList
     }
 
     private processTransportationTypes(transportationTypes: any): GpxRangicTransportationType[] {

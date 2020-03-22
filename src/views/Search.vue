@@ -29,45 +29,50 @@
       :data="searchResults.matches"
       :opened-detailed="openedDetails"
       :show-detail-icon="true"
-      :sticky-header="true"
+      ref="tracksTable"
       detailed
-      detail-key="id">
+      detail-key="id" >
       <template slot-scope="props">
 
-        <b-table-column field="start" label="Date" centered @click.stop="toggleDetails">
+        <b-table-column field="start" label="Date" centered class="pointer-cursor" 
+            @click.native.stop="toggleDetails(props.row)">
           <span class="has-text-weight-semibold	" >
             {{ displayable.dayOfWeek(props.row.startTime, props.row.timezoneInfo.id) }},
             {{ displayable.date(props.row.startTime, props.row.timezoneInfo.id) }}
           </span>
         </b-table-column>
 
-        <b-table-column field="start" label="Time" centered>
+        <b-table-column field="start" label="Time" centered class="pointer-cursor" 
+            @click.native.stop="toggleDetails(props.row)" >
           <span >
             {{ displayable.shortTime(props.row.startTime, props.row.timezoneInfo.id) }} -
             {{ displayable.shortTime(props.row.endTime, props.row.timezoneInfo.id) }}
           </span>
         </b-table-column>
 
-        <b-table-column field="duration" label="Duration">
+        <b-table-column field="duration" label="Duration" class="pointer-cursor" 
+            @click.native.stop="toggleDetails(props.row)" >
           {{ displayable.trackDistance(props.row) }}, {{ displayable.duration(props.row) }}
         </b-table-column>
 
-        <b-table-column field="countryNames" label="Countries" @click.stop="showMap">
+        <b-table-column field="countryNames" label="Countries" class="pointer-cursor has-background-map" 
+            @click.native.stop="showMap(props.row)" >
           {{ displayable.firstFew(props.row.countryNames) }}
         </b-table-column>
 
-        <b-table-column field="cityNames" label="Cities">
+        <b-table-column field="cityNames" label="Cities" class="pointer-cursor has-background-map" 
+            @click.native.stop="showMap(props.row)" >
           {{ displayable.firstFew(props.row.cityNames) }}
         </b-table-column>
 
-        <b-table-column field="siteNames" label="Sites">
+        <b-table-column field="siteNames" label="Sites" class="pointer-cursor has-background-map" 
+            @click.native.stop="showMap(props.row)" >
           {{ displayable.firstFew(props.row.siteNames) }}
         </b-table-column>
 
-        <b-table-column field="map" label="">
-          <router-link :to="{ path: 'map', query: {id: props.row.id} }">
-            <b-icon icon="map" size="is-medium"/>
-          </router-link>
+        <b-table-column field="map" label="" class="pointer-cursor has-background-map" 
+            @click.native.stop="showMap(props.row)" >
+          <b-icon icon="map" size="is-medium"/>
         </b-table-column>
 
       </template>
@@ -118,7 +123,7 @@
 
 <script lang="ts">
 import { Component, Inject, Vue, Watch } from 'vue-property-decorator'
-import { SearchResults, SearchTrack } from '@/models/SearchResults'
+import { SearchResults, SearchResultsHelper, SearchTrack } from '@/models/SearchResults'
 import { displayable } from '@/utils/Displayable'
 import { TrackMasterServer } from '@/services/TrackMasterServer'
 
@@ -157,24 +162,28 @@ export default class Search extends Vue {
     this.trackMaster.list((page - 1) * this.pageSize, this.pageSize)
       .then((results) => {
         this.searchResults = results
+        for (const sr of this.searchResults.matches) {
+          SearchResultsHelper.augment(sr)
+        }
       })
       .catch((err) => {
         this.messages.push(`Search failed: ` + err)
       })
   }
 
-  private toggleDetails() {
-console.log(`toggle`)
+  private toggleDetails(row: object) {
+    this.$refs.tracksTable.toggleDetails(row)
   }
 
-  private showmap() {
-console.log(`show map`)
+  private showMap(row: object) {
+      this.$router.push( { path: 'map', query: { id: `${row.id}` } }).catch( (err) => {})
+
   }
 
   @Watch('currentPage')
   private pageChanged(to: any, from: any) {
     if (to !== from) {
-      this.$router.push( { path: 'search', query: { page: `${this.currentPage}` } })
+      this.$router.push( { path: 'search', query: { page: `${this.currentPage}` } }).catch( (err) => {})
     }
   }
 }
@@ -208,6 +217,14 @@ console.log(`show map`)
 .horz-margins {
   padding-left: 0.5em;
   padding-right: 0.5em;
+}
+
+.pointer-cursor {
+  cursor: pointer;
+}
+
+.has-background-map {
+  background-color: hsl(204, 76%, 23%);
 }
 
 </style>
