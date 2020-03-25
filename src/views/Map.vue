@@ -29,6 +29,16 @@
           {{ selectedInfoText }}
         </span>
       </a>
+      <span class="is-pulled-right">
+        <b-button class="button has-background-black-ter has-text-info has-pointer-events" type="is-link"
+            @click.native.stop="onPrevious" >
+          <b-icon icon="angle-left" />
+        </b-button>
+        <b-button class="button has-background-black-ter has-text-info has-pointer-events" type="is-link"
+            @click.native.stop="onNext" >
+          <b-icon icon="angle-right" />
+        </b-button>
+      </span>
     </div>
     <b-collapse :open="infoVisible" class="info-content" aria-id="info-content-id">
       <b-tabs v-model="activeInfoTab">
@@ -155,6 +165,12 @@ interface StringMapPath {
   [key: string]: L.Path
 }
 
+// The object (segment or waypoint) and the index of that type
+interface IndexAndObject {
+  nativeIndex: number
+  object: GpxWaypoint | GpxSegment
+}
+
 @Component({})
 export default class Map extends Vue {
   @Inject('trackMaster') private trackMaster!: TrackMasterServer
@@ -175,8 +191,12 @@ export default class Map extends Vue {
   private selectedPoint?: L.Circle
   private infoVisible = false
   private activeInfoTab = 0
+
   private selectedSegment = Object()
   private selectedWaypoint = Object()
+  private selectedIndex = -1
+  private indexObject: IndexAndObject[] = []
+
   private skipFitBounds = false
   private waypointPolyMap: StringMapPath = { }
   private waypointSelectionOptions = {
@@ -197,6 +217,93 @@ export default class Map extends Vue {
         .catch((err) => { this.messages.push(`Failed retrieving track: ` + err) })
       this.loadTrack(props.id as string)
     }
+  }
+
+  private onPrevious() {
+    this.selectByIndex(this.selectedIndex - 1)
+  }
+
+  private onNext() {
+    this.selectByIndex(this.selectedIndex + 1)
+  }
+
+  private selectByIndex(newIndex: number) {
+    if (this.indexObject.length < 1) {
+      return
+    }
+    if (newIndex < 0) {
+      newIndex = this.indexObject.length - 1
+    } else if (newIndex >= this.indexObject.length) {
+      newIndex = 0
+    }
+    this.selectedIndex = newIndex
+    const indexAndObject = this.indexObject[this.selectedIndex]
+
+    if (GpxParser.isWaypoint(indexAndObject.object)) {
+      this.selectedWaypoint = indexAndObject.object as GpxWaypoint
+      this.selectWaypoint(indexAndObject.object as GpxWaypoint)
+    } else if (GpxParser.isSegment(indexAndObject.object)) {
+      this.selectedSegment = indexAndObject.object as GpxSegment
+      this.selectSegment(indexAndObject.object as GpxSegment)
+    }
+  }
+
+  private selectByObject(object: GpxWaypoint | GpxSegment) {
+    for (let index = 0; index < this.indexObject.length; ++index) {
+      if (this.indexObject[index].object === object) {
+        this.selectByIndex(index)
+        break
+      }
+    }
+  }
+
+  @Watch('selectedSegment')
+  private onSegmentSelectionChanged(to: any, from: any) {
+    const segment = this.selectedSegment as GpxSegment
+    if (!segment) {
+      return
+    }
+    this.selectByObject(segment)
+  }
+
+  private selectSegment(segment: GpxSegment) {
+    let index = 0
+    for (const s of this.allSegments) {
+      index += 1
+      if (s.points[0].timestamp === segment.points[0].timestamp) { break }
+    }
+    const line = this.segmentPolyMap[segment.points[0].timestamp.toISO()]
+    this.setSelection(null, line, this.segmentSelectionOptions, this.segmentSelectionMessage(index, segment))
+
+    if (!this.skipFitBounds && segment.rangic) {
+      this.fitBounds(segment.rangic!.bounds)
+    }
+    this.skipFitBounds = false
+  }
+
+  @Watch('selectedWaypoint')
+  private onWaypointSelectionChanged(to: any, from: any) {
+    const waypoint = this.selectedWaypoint as GpxWaypoint
+    if (!waypoint) {
+      return
+    }
+    this.selectByObject(waypoint)
+  }
+
+  private selectWaypoint(waypoint: GpxWaypoint) {
+    let index = 0
+    for (const s of this.waypoints) {
+      index += 1
+      if (s.timestamp === waypoint.timestamp) { break }
+    }
+    const path = this.waypointPolyMap[waypoint.timestamp.toISO()]
+    this.setSelection(null, path, this.waypointOptions(waypoint), this.waypointSelectionMessage(index, waypoint))
+    if (!this.skipFitBounds) {
+      if (waypoint.rangic) {
+        this.fitBounds(waypoint.rangic!.bounds, false)
+      }
+    }
+    this.skipFitBounds = false
   }
 
   private onSiteClicked(name: string) {
@@ -236,10 +343,37 @@ export default class Map extends Vue {
 
             this.addSegments(this.allSegments, 'Segments', true, this.segmentSelectionOptions)
             this.addWaypoints(gpx)
+            this.buildIndexObject()
           })
           .catch((err) => { this.errorMessage(`Failed adding analyzed track to map`, err) })
       })
       .catch((err) => { this.messages.push(`Failed retrieving analyzed track: ` + err) })
+  }
+
+  private buildIndexObject() {
+    this.indexObject = []
+    let waypointIndex = 0
+    let segmentIndex = 0
+
+    while (waypointIndex < this.waypoints.length || segmentIndex < this.allSegments.length) {
+      let wp: GpxWaypoint | undefined
+      let seg: GpxSegment | undefined
+
+      if (waypointIndex < this.waypoints.length) {
+        wp = this.waypoints[waypointIndex]
+      }
+      if (segmentIndex < this.allSegments.length) {
+        seg = this.allSegments[segmentIndex]
+      }
+      if (wp && (!seg || wp.timestamp < seg.points[0].timestamp)) {
+        this.indexObject.push( { nativeIndex: waypointIndex, object: wp })
+        waypointIndex += 1
+      }
+      if (seg && (!wp || seg.points[0].timestamp < wp.timestamp)) {
+        this.indexObject.push( { nativeIndex: segmentIndex, object: seg })
+        segmentIndex += 1
+      }
+    }
   }
 
   private errorMessage(message: string, err: Error) {
@@ -275,9 +409,9 @@ export default class Map extends Vue {
       const l = new L.Circle([w.latitude, w.longitude], options)
       const stopIndex = index
       l.on('click', (e) => {
-        this.setSelection(e, l, options, this.waypointSelectionMessage(index, w))
+        this.setSelection(e, l, options, this.waypointSelectionMessage(stopIndex, w))
         this.skipFitBounds = true
-        this.selectedWaypoint = w
+        this.selectByObject(w)
       })
       index += 1
       this.waypointPolyMap[w.timestamp.toISO()] = l
@@ -291,17 +425,17 @@ export default class Map extends Vue {
   private addSegments(segments: GpxSegment[], label: string, addToMap: boolean, options: object) {
     let index = 1
     const segmentLines = segments.map( (s) => {
-        const segmentIndex = index
         const segmentLatLngList = s.points.map( (p) => {
           return new L.LatLng(p.latitude, p.longitude)
         })
 
         const line = new L.Polyline(segmentLatLngList, options)
+        const segmentIndex = index
         line.on('click', (e) => {
           const message = this.segmentSelectionMessage(segmentIndex, s)
           this.setSelection(e, line, options, message)
           this.skipFitBounds = true
-          this.selectedSegment = s
+          this.selectByObject(s)
 
           const me = e as L.LeafletMouseEvent
           const closestPoint = Geo.closestPoint(s.points, me.latlng.lat, me.latlng.lng)
@@ -444,41 +578,6 @@ export default class Map extends Vue {
   private waypointOptions(waypoint: GpxWaypoint) {
     const seconds = waypoint.rangic?.seconds ?? 0
     return seconds >= 2 * 60 ? this.waypointSelectionOptions : this.shortWaypointSelectionOptions
-  }
-
-  @Watch('selectedWaypoint')
-  private onWaypointSelectionChanged(to: any, from: any) {
-    const waypoint = this.selectedWaypoint as GpxWaypoint
-    let index = 0
-    for (const s of this.waypoints) {
-      index += 1
-      if (s.timestamp === waypoint.timestamp) { break }
-    }
-    const path = this.waypointPolyMap[waypoint.timestamp.toISO()]
-    this.setSelection(null, path, this.waypointOptions(waypoint), this.waypointSelectionMessage(index, waypoint))
-    if (!this.skipFitBounds) {
-      if (waypoint.rangic) {
-        this.fitBounds(waypoint.rangic!.bounds, false)
-      }
-    }
-    this.skipFitBounds = false
-  }
-
-  @Watch('selectedSegment')
-  private onSegmentSelectionChanged(to: any, from: any) {
-    const segment = this.selectedSegment as GpxSegment
-    let index = 0
-    for (const r of this.allSegments) {
-      index += 1
-      if (r.points[0].timestamp === segment.points[0].timestamp) { break }
-    }
-    const line = this.segmentPolyMap[segment.points[0].timestamp.toISO()]
-    this.setSelection(null, line, this.segmentSelectionOptions, this.segmentSelectionMessage(index, segment))
-
-    if (!this.skipFitBounds && segment.rangic) {
-      this.fitBounds(segment.rangic!.bounds)
-    }
-    this.skipFitBounds = false
   }
 
   private initializeMap() {
