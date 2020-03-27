@@ -1,10 +1,18 @@
 import { SearchTimezoneInfo, SearchTrack } from '@/models/SearchResults'
 import { DateTime } from 'luxon'
+import { GpxSegment } from '@/models/Gpx'
 
 export class Displayable {
   public static kilometersPerMile = 0.6213712
   public static yardsPerMile = 1760
   public static feetPerMile = 5280
+
+  public segmentTransportation(segment: GpxSegment): string {
+    if (segment.rangic && segment.rangic.transportationTypes.length > 0) {
+      return segment.rangic.transportationTypes.filter(i => i.probability > 0.33).map(i => i.mode).join(', ')
+    }
+    return ''
+  }
 
   public duration(track: SearchTrack): string {
     const end = DateTime.fromISO(track.endTime)

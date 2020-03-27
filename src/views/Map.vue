@@ -111,7 +111,7 @@
               </b-table-column>
               <b-table-column field="transportation" label="Transportation" centered>
                 <span v-if="props.row.rangic">
-                  {{ props.row.rangic.transportationTypes.filter(i => i.probability >= 0.33).map(i => i.mode).join(', ')  }}
+                  {{ displayable.segmentTransportation(props.row) }}
                 </span>
               </b-table-column>
             </template>
@@ -567,12 +567,19 @@ export default class Map extends Vue {
     const timestamp = segment.points[0].timestamp
     const day = this.displayable.dayOfWeek(timestamp, this.track.timezoneInfo.id)
     const year = this.displayable.date(timestamp, this.track.timezoneInfo.id)
-    return `Segment #${index}: ` +
+    let message = `Segment #${index}: ` +
       `${day}, ${year} - ` +
       `${this.time(segment.points[0].timestamp)}, ` +
       `${displayable.distance(segment.rangic?.kilometers ?? 0)}, ` +
       `${this.displayable.durationSeconds(segment.seconds)}, ` +
       `${this.displayable.speed(segment.seconds, segment.rangic?.kilometers ?? 0)}`
+
+    let ttMessage = displayable.segmentTransportation(segment)
+    if (ttMessage.length > 0) {
+      message += '; ' + ttMessage
+    }
+
+    return message
   }
 
   private waypointOptions(waypoint: GpxWaypoint) {
