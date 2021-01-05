@@ -18,7 +18,7 @@
     "@types/tz-lookup": "^6.1.0",
     "@types/xml2js": "^0.4.5",
     "apexcharts": "^3.17.0",
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "buefy": "^0.8.13",
     "core-js": "^2.6.11",
     "leaflet": "^1.6.0",
